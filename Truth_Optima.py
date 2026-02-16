@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
 from datetime import datetime
+from sklearn.neighbors import NearestNeighbors
 
 # Import the API interfaces
 from api_interfaces import LLMInterface, LLMSimulator, OpenAICompatibleAPI
@@ -276,20 +277,32 @@ class CoherenceEngine:
 # ============================================================
 
 class SemanticCache:
-    """Trust-weighted semantic cache (Section 5)"""
+    """Trust-weighted semantic cache with O(log N) search (Section 5)"""
     
     def __init__(self, config: TruthOptimaConfig, storage_path: Optional[str] = None):
         self.config = config
         self.data: List[Dict] = [] # (vector, answer, trust)
         self.storage_path = storage_path
+        self.index = None
         if self.storage_path and os.path.exists(self.storage_path):
             self.load()
+        self._rebuild_index()
             
+    def _rebuild_index(self):
+        """Rebuild the NearestNeighbors index for fast O(log N) search"""
+        if not self.data:
+            self.index = None
+            return
+        
+        vectors = np.stack([entry['vector'] for entry in self.data])
+        # Use ball_tree or kd_tree for O(log N) search
+        self.index = NearestNeighbors(n_neighbors=min(2, len(self.data)), metric='cosine', algorithm='auto')
+        self.index.fit(vectors)
+
     def save(self):
         """Persist cache state to disk"""
         if not self.storage_path:
             return
-        # Convert numpy vectors to lists for JSON serialization
         serializable_data = []
         for entry in self.data:
             serializable_data.append({
@@ -316,20 +329,28 @@ class SemanticCache:
                         'trust': entry['trust'],
                         'timestamp': entry['timestamp']
                     })
+                self._rebuild_index()
         except Exception as e:
             print(f"Error loading cache: {e}")
     
     def lookup(self, v: np.ndarray) -> Tuple[Optional[str], float]:
-        if not self.data:
+        if not self.data or self.index is None:
             return None, 0.0
         
+        # Fast search using the index
+        v_reshaped = v.reshape(1, -1)
+        n_search = min(2, len(self.data))
+        distances, indices = self.index.kneighbors(v_reshaped, n_neighbors=n_search)
+        
+        # Convert cosine distance to similarity: sim = 1 - dist
+        similarities = 1.0 - distances[0]
+        
         scores = []
-        for entry in self.data:
-            sim = np.dot(entry['vector'], v)
-            score = entry['trust'] * sim
+        for i, idx in enumerate(indices[0]):
+            entry = self.data[idx]
+            score = entry['trust'] * similarities[i]
             scores.append((score, entry['answer']))
             
-        scores.sort(key=lambda x: x[0], reverse=True)
         s_max, best_ans = scores[0]
         s_second = scores[1][0] if len(scores) > 1 else 0.0
         
@@ -347,6 +368,9 @@ class SemanticCache:
         })
         if len(self.data) > self.config.cache_max:
             self.data.pop(0)
+        
+        # Rebuild index periodically or after each add for small caches
+        self._rebuild_index()
 
 
 class ByzantineConsensus:
