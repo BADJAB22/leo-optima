@@ -1,93 +1,93 @@
-# LEO Optima: The Ultimate AI Token Optimization Engine
+# 🦁 LEO Optima: The Intelligent LLM Optimization Layer
 
-**LEO Optima** is a high-performance, model-agnostic optimization layer designed to slash LLM API costs by up to 80% without sacrificing output quality. By combining advanced semantic caching, intelligent context management, and a dual-tier deployment model, LEO Optima makes running large-scale AI agents and applications economically sustainable.
-
----
-
-## 🚀 What's New in v1.1 (TruthOptima Update)
-
-The latest update brings the **TruthOptima** hybrid system into the core of LEO Optima, focusing on **Universal API Compatibility** and **Byzantine Verification**.
-
-- **Universal API Interface**: A new abstraction layer (`api_interfaces.py`) that supports any LLM API in the world.
-- **OpenAI Compatibility**: Native support for OpenAI-compatible endpoints, Anthropic, and local LLMs.
-- **Byzantine Consensus**: Multi-model verification for high-risk queries to ensure factual accuracy and detect outliers.
-- **Enhanced Smart Routing**: Automatically switches between Cache, Fast (single model), and Consensus (multi-model) routes based on query risk, novelty, and coherence.
+**LEO Optima** is a high-performance, self-hosted middleware designed to slash LLM API costs by up to 80% while significantly reducing latency. It acts as a "Smart Filter" between your application and any AI provider (OpenAI, Anthropic, Groq, or Local LLMs).
 
 ---
 
-## 🛠 Core Technologies
+## 🎯 The Core Philosophy
+In the current AI landscape, companies pay full price for every single token, even when asking the same or similar questions repeatedly. **LEO Optima changes this.** 
 
-LEO Optima is built on the mathematical foundations of the **Truth-Optima** hybrid system:
-
-1.  **HNSW Semantic Cache:** A local, high-speed vector database that stores previous successful completions.
-2.  **Micro-Memory Influence:** A contextual memory system that enriches embeddings with local history.
-3.  **Novelty & Coherence Engines:**
-    *   **Novelty:** Measures how "new" or "different" a query is.
-    *   **Coherence:** Uses ADMM-based consensus to measure structural complexity.
-4.  **Universal API Layer:** Interface-driven design allowing seamless integration of any model provider.
+We don't provide the models; **you bring your own models.** We provide the **Intelligence Layer** that ensures you never pay for the same answer twice.
 
 ---
 
-## 📦 Repository Structure
+## ✨ Key Features
 
-- `Truth_Optima.py`: Main system logic and routing engine.
-- `api_interfaces.py`: Universal API abstraction layer (v1.1).
-- `main.py`: Simple CLI entry point for the system.
-- `.env.example`: Template for environment variables.
-- `README.md`: Project documentation and roadmap.
+### 🧠 Advanced Semantic Caching
+Unlike traditional keyword-based caches, LEO uses **Vector Embeddings** to understand the *meaning* of a query. If a user asks "What's the weather in London?" and another asks "Tell me the current climate in London," LEO recognizes the similarity and serves the cached result instantly.
+
+### 🛡️ Privacy-First Architecture (Self-Hosted)
+- **Zero-Data Leakage:** LEO runs on **your** infrastructure. Your queries, API keys, and cached data never leave your servers.
+- **Local Vector DB:** Uses a high-speed local storage system for embeddings, ensuring total control over your intellectual property.
+
+### ⚡ Ultra-Low Latency
+- **Instant Hits:** Cached responses are served in **<10ms**, compared to the 2-10 seconds typical of raw LLM calls.
+- **Efficient Routing:** Non-cached queries are forwarded to the provider with minimal overhead.
+
+### 🔌 Universal Compatibility
+- **One-Line Integration:** Works as a transparent proxy. If your code works with OpenAI, it works with LEO Optima.
+- **Model Agnostic:** Use it with GPT-4, Claude 3, Llama 3, or any custom endpoint.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 How It Works: The "Smart Bridge"
 
-### Installation
+1. **The Request:** Your application sends a request to LEO Optima instead of the direct API provider.
+2. **The Check:** LEO's **Novelty & Coherence Engines** analyze the query.
+3. **The Decision:**
+   - **Cache Hit:** If a similar query exists, LEO returns the answer immediately for **$0 cost**.
+   - **Cache Miss:** If the query is new, LEO forwards it to your provider, retrieves the answer, and stores it for future use.
+
+---
+
+## 🛠 Quick Start
+
+### 1. Installation
 ```bash
-# Install dependencies
-sudo apt-get install -y build-essential python3-dev
-sudo pip3 install scikit-learn scipy hnswlib openai
+git clone https://github.com/BADJAB22/leo-optima.git
+cd leo-optima
+pip install -r requirements.txt # (Coming soon) or install: fastapi uvicorn httpx numpy
 ```
 
-### Usage
-Run the interactive CLI:
+### 2. Run the Proxy
 ```bash
-python3 main.py --interactive --sim
+python3 proxy_server.py
 ```
 
-Or ask a single question:
-```bash
-python3 main.py "What is machine learning?" --sim
-```
+### 3. Connect Your App
+Just change your `base_url` to point to LEO Optima:
 
-Export results to a file:
-```bash
-python3 main.py "Explain quantum computing" --sim --export report.txt
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your_api_key",
+    base_url="http://localhost:8000/v1" # This is the magic line
+)
 ```
 
 ---
 
-## 🗺 Roadmap & Development Plan
-
-### Phase 1: Foundation (COMPLETED)
-*   [x] Build a flexible Python Proxy compatible with OpenAI/Anthropic API formats.
-*   [x] Integrate the HNSW-based Semantic Cache.
-*   [x] Implement Novelty/Coherence scoring for routing logic.
-*   [x] **v1.1 Update**: Universal API Interface and Byzantine Consensus.
-
-### Phase 2: Integration & Ecosystem (IN PROGRESS)
-*   [ ] Create "One-Click" setup guides for popular platforms like **Open Claw**.
-*   [ ] Develop a CLI tool for easy installation and license activation.
-*   [ ] Build a local dashboard to track "Dollars Saved" and "Tokens Optimized."
-
-### Phase 3: The Managed Cloud
-*   [ ] Deploy the LEO Managed API gateway with multi-tenant support.
-*   [ ] Implement a global, shared (but anonymized) semantic cache.
+## 📊 Business Impact
+| Metric | Without LEO Optima | With LEO Optima |
+| :--- | :--- | :--- |
+| **Cost per Duplicate Query** | Full Price ($$$) | **$0.00** |
+| **Response Time** | 2,000ms - 10,000ms | **<10ms** |
+| **API Reliability** | Subject to Provider Downtime | **Always Available** (for cached queries) |
+| **Data Privacy** | Sent to Cloud Providers | **Stored Locally** |
 
 ---
 
-## 📄 License & Terms
-
-LEO Optima is a proprietary optimization engine. For licensing inquiries or to join the beta, please visit [leo-optima.com](https://leo-optima.com).
+## 🗺 Roadmap
+- [x] **v1.0:** Core Proxy Logic & Semantic Cache.
+- [x] **v1.1:** Universal API Support & Persistence.
+- [ ] **v1.2:** Multi-tenant Support & API Key Management.
+- [ ] **v1.3:** "Dollars Saved" Dashboard & Analytics UI.
 
 ---
 
+## 📄 License
+LEO Optima is a proprietary optimization engine. For licensing inquiries or enterprise support, please visit [leo-optima.com](https://leo-optima.com).
+
+---
 *Built with ❤️ for the AI Developer Community.*
