@@ -58,6 +58,11 @@ Or ask a single question:
 python3 main.py "What is machine learning?" --sim
 ```
 
+Export results to a file:
+```bash
+python3 main.py "Explain quantum computing" --sim --export report.txt
+```
+
 ---
 
 ## 🗺 Roadmap & Development Plan

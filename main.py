@@ -9,6 +9,7 @@ async def main():
     parser.add_argument("query", type=str, nargs="?", help="The question to ask the AI")
     parser.add_argument("--interactive", "-i", action="store_true", help="Run in interactive mode")
     parser.add_argument("--sim", action="store_true", help="Use simulators instead of real APIs")
+    parser.add_argument("--export", "-e", type=str, help="Export the response to a file")
     
     args = parser.parse_args()
 
@@ -48,6 +49,8 @@ async def main():
     elif args.query:
         response = await system.ask(args.query)
         system.print_response(response)
+        if args.export:
+            system.export_response(response, args.export)
     else:
         parser.print_help()
 

@@ -623,41 +623,53 @@ class TruthOptima:
             'memory_size': len(self.memory.memory)
         }
     
-    def print_response(self, response: TruthOptimaResponse):
-        """Pretty print response"""
-        print("\n" + "="*70)
-        print(f"🎯 TRUTHOPTIMA RESPONSE")
-        print("="*70)
-        
-        print(f"\n✅ ANSWER: {response.answer}")
-        print(f"\n📍 ROUTE: {response.route.value}")
-        print(f"⚠️  RISK: {response.risk_level.value}")
-        print(f"📊 CONFIDENCE: {response.confidence:.1%}")
-        print(f"💰 COST: ${response.cost_estimate:.4f}")
+    def format_response(self, response: TruthOptimaResponse) -> str:
+        """Format response as a string"""
+        lines = []
+        lines.append("\n" + "="*70)
+        lines.append(f"🎯 TRUTHOPTIMA RESPONSE")
+        lines.append("="*70)
+        lines.append(f"\n✅ ANSWER: {response.answer}")
+        lines.append(f"\n📍 ROUTE: {response.route.value}")
+        lines.append(f"⚠️  RISK: {response.risk_level.value}")
+        lines.append(f"📊 CONFIDENCE: {response.confidence:.1%}")
+        lines.append(f"💰 COST: ${response.cost_estimate:.4f}")
         
         if response.novelty is not None:
-            print(f"\n📈 METRICS:")
-            print(f"   Novelty: {response.novelty:.3f}")
-            print(f"   Coherence: {response.coherence:.3f}")
+            lines.append(f"\n📈 METRICS:")
+            lines.append(f"   Novelty: {response.novelty:.3f}")
+            lines.append(f"   Coherence: {response.coherence:.3f}")
         
         if response.cache_score is not None:
-            print(f"   Cache Score: {response.cache_score:.3f}")
+            lines.append(f"   Cache Score: {response.cache_score:.3f}")
         
         if response.sigma is not None:
-            print(f"\n🔐 VERIFICATION:")
-            print(f"   Sigma: {response.sigma:.3f}")
-            print(f"   Commit: {response.commit}")
+            lines.append(f"\n🔐 VERIFICATION:")
+            lines.append(f"   Sigma: {response.sigma:.3f}")
+            lines.append(f"   Commit: {response.commit}")
         
         if response.outliers:
-            print(f"\n⚠️  OUTLIERS: {', '.join(response.outliers)}")
+            lines.append(f"\n⚠️  OUTLIERS: {', '.join(response.outliers)}")
         
         if response.trust_scores:
-            print(f"\n🔐 TRUST SCORES:")
+            lines.append(f"\n🔐 TRUST SCORES:")
             for model, trust in sorted(response.trust_scores.items(), key=lambda x: x[1], reverse=True):
                 bar = "█" * int(trust * 20)
-                print(f"   {model:8s} {bar} {trust:.3f}")
+                lines.append(f"   {model:8s} {bar} {trust:.3f}")
         
-        print("\n" + "="*70)
+        lines.append("\n" + "="*70)
+        return "\n".join(lines)
+
+    def print_response(self, response: TruthOptimaResponse):
+        """Pretty print response"""
+        print(self.format_response(response))
+
+    def export_response(self, response: TruthOptimaResponse, filename: str):
+        """Export response to a text file"""
+        content = self.format_response(response)
+        with open(filename, 'w') as f:
+            f.write(content)
+        print(f"✅ Report exported to: {filename}")
 
 
 # ============================================================
