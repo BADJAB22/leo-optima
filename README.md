@@ -4,78 +4,70 @@
 
 ---
 
-## 🚀 The Vision
+## 🚀 What's New in v1.1 (TruthOptima Update)
 
-In the era of autonomous AI agents (like Open Claw, AutoGPT, and LangChain), token consumption is exploding. Developers often default to the most powerful (and expensive) models for every task, leading to unsustainable API bills. 
+The latest update brings the **TruthOptima** hybrid system into the core of LEO Optima, focusing on **Universal API Compatibility** and **Byzantine Verification**.
 
-**LEO Optima** solves this by acting as an intelligent "governor" between your application and the LLM providers. It ensures that every token spent is necessary and that repeated or simple queries are handled at near-zero cost.
+- **Universal API Interface**: A new abstraction layer (`api_interfaces.py`) that supports any LLM API in the world.
+- **OpenAI Compatibility**: Native support for OpenAI-compatible endpoints, Anthropic, and local LLMs.
+- **Byzantine Consensus**: Multi-model verification for high-risk queries to ensure factual accuracy and detect outliers.
+- **Enhanced Smart Routing**: Automatically switches between Cache, Fast (single model), and Consensus (multi-model) routes based on query risk, novelty, and coherence.
 
 ---
 
 ## 🛠 Core Technologies
 
-LEO Optima is built on the mathematical foundations of the **LEO Optima White Paper** and the **Truth-Optima** hybrid system:
+LEO Optima is built on the mathematical foundations of the **Truth-Optima** hybrid system:
 
-1.  **HNSW Semantic Cache:** A local, high-speed vector database that stores previous successful completions. If a new query is semantically similar to a cached one, LEO returns the result instantly—saving 100% of the API cost.
-2.  **Micro-Memory Influence:** A contextual memory system that enriches embeddings with local history, allowing smaller, cheaper models to perform with the accuracy of larger ones.
+1.  **HNSW Semantic Cache:** A local, high-speed vector database that stores previous successful completions.
+2.  **Micro-Memory Influence:** A contextual memory system that enriches embeddings with local history.
 3.  **Novelty & Coherence Engines:**
     *   **Novelty:** Measures how "new" or "different" a query is.
-    *   **Coherence:** Uses ADMM-based consensus to measure the structural complexity of a prompt.
-4.  **Smart Routing:** Automatically determines whether a query requires a "Heavyweight" model (e.g., Claude 3.5 Opus, GPT-4o) or can be handled by a "Lightweight" model (e.g., Claude Haiku, Gemini Flash, DeepSeek).
+    *   **Coherence:** Uses ADMM-based consensus to measure structural complexity.
+4.  **Universal API Layer:** Interface-driven design allowing seamless integration of any model provider.
 
 ---
 
-## 📦 Deployment Tiers
+## 📦 Repository Structure
 
-### 1. LEO Local Proxy (Privacy-First)
-Designed for users who handle sensitive data and cannot share their API keys.
-*   **How it works:** A lightweight FastAPI/Docker container running on the user's local machine or private server.
-*   **Integration:** A simple "one-line" change. Users point their `base_url` to `localhost:8080`.
-*   **Privacy:** All API keys and semantic cache data remain on the user's hardware.
-*   **Pricing:** Fixed monthly subscription (e.g., $99/mo) for license and optimization updates.
+- `Truth-Optima.py`: Main system logic and routing engine.
+- `api_interfaces.py`: Universal API abstraction layer (v1.1).
+- `README.md`: Project documentation and roadmap.
 
-### 2. LEO Managed API (Maximum Ease & Savings)
-A cloud-based "Super-API" that handles everything.
-*   **How it works:** Users get a single API endpoint (e.g., `api.leo-optima.com`).
-*   **Intelligence:** LEO internally routes requests across a global pool of models and shared caches to maximize savings.
-*   **Integration:** Drop-in replacement for any OpenAI or Anthropic-compatible SDK.
-*   **Pricing:** Pay-per-use at significantly lower rates than direct providers.
+---
+
+## 🚀 Getting Started
+
+### Installation
+```bash
+# Install dependencies
+sudo apt-get install -y build-essential python3-dev
+sudo pip3 install scikit-learn scipy hnswlib openai
+```
+
+### Running the Demo
+```bash
+python3 Truth-Optima.py
+```
 
 ---
 
 ## 🗺 Roadmap & Development Plan
 
-### Phase 1: Foundation (The Local Proxy)
-*   [ ] Build a flexible Python Proxy (FastAPI) compatible with OpenAI/Anthropic API formats.
-*   [ ] Integrate the HNSW-based Semantic Cache from `Truth-Optima.py`.
-*   [ ] Implement basic Novelty/Coherence scoring for routing logic.
+### Phase 1: Foundation (COMPLETED)
+*   [x] Build a flexible Python Proxy compatible with OpenAI/Anthropic API formats.
+*   [x] Integrate the HNSW-based Semantic Cache.
+*   [x] Implement Novelty/Coherence scoring for routing logic.
+*   [x] **v1.1 Update**: Universal API Interface and Byzantine Consensus.
 
-### Phase 2: Integration & Ecosystem
+### Phase 2: Integration & Ecosystem (IN PROGRESS)
 *   [ ] Create "One-Click" setup guides for popular platforms like **Open Claw**.
 *   [ ] Develop a CLI tool for easy installation and license activation.
 *   [ ] Build a local dashboard to track "Dollars Saved" and "Tokens Optimized."
 
 ### Phase 3: The Managed Cloud
 *   [ ] Deploy the LEO Managed API gateway with multi-tenant support.
-*   [ ] Implement a global, shared (but anonymized) semantic cache for common public queries.
-*   [ ] Add support for **Byzantine Consensus** across multiple providers to guarantee truthfulness for high-risk queries.
-
-### Phase 4: Enterprise Features
-*   [ ] Role-based access control (RBAC) for teams.
-*   [ ] Custom model fine-tuning based on local cache data.
-*   [ ] Advanced analytics and cost forecasting.
-
----
-
-## 🤝 Model Support
-
-LEO Optima is **Model Agnostic**. It works with:
-*   **Anthropic:** Claude 3.5 (Opus, Sonnet, Haiku)
-*   **OpenAI:** GPT-4o, GPT-4-turbo, GPT-3.5
-*   **Google:** Gemini 1.5 (Pro, Flash)
-*   **Meta:** Llama 3 (via Groq/Together/Fireworks)
-*   **DeepSeek:** DeepSeek-V3, DeepSeek-Coder
-*   **And any other OpenAI-compatible API.**
+*   [ ] Implement a global, shared (but anonymized) semantic cache.
 
 ---
 

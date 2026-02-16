@@ -1,4 +1,3 @@
-```python
 """
 TRUTHOPTIMA - The Complete Hybrid System
 ===========================================
@@ -22,7 +21,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial import distance
 import hnswlib
 import uuid
+import os
 
+# Import the new API interfaces
+from api_interfaces import LLMInterface, LLMSimulator, OpenAICompatibleAPI
 
 # ============================================================
 # CONFIGURATION
@@ -305,8 +307,8 @@ class SemanticCache:
             idx = self.count
             self.entries.append(entry)
             self.vectors.append(v)
-            self.index.add_items(v.reshape(1, -1), [idx])
             self.lru.append(0)
+            self.index.add_items(v.reshape(1, -1), [idx])
             self.count += 1
         else:
             # LRU eviction
@@ -387,17 +389,16 @@ class ByzantineConsensus:
 # ============================================================
 
 class RiskAssessor:
-    """Assess query risk level"""
+    """Analyzes query risk based on keywords"""
     
     def __init__(self, config: TruthOptimaConfig):
         self.config = config
     
     def assess(self, question: str) -> RiskLevel:
-        """Determine risk level from question content"""
         q_lower = question.lower()
         
         # Critical keywords
-        critical = ['death', 'suicide', 'kill', 'harm', 'abuse']
+        critical = ['suicide', 'kill', 'bomb', 'attack', 'illegal']
         if any(kw in q_lower for kw in critical):
             return RiskLevel.CRITICAL
         
@@ -407,33 +408,6 @@ class RiskAssessor:
                 return RiskLevel.HIGH
         
         return RiskLevel.LOW
-
-
-# ============================================================
-# LLM SIMULATORS (Replace with real API calls)
-# ============================================================
-
-class LLMSimulator:
-    """Simulates LLM responses"""
-    
-    def __init__(self, name: str):
-        self.name = name
-    
-    async def query(self, question: str) -> str:
-        """Simulate API call"""
-        await asyncio.sleep(np.random.uniform(0.1, 0.3))
-        
-        seed = int(hashlib.md5((question + self.name).encode()).hexdigest()[:8], 16)
-        np.random.seed(seed)
-        
-        responses = [
-            f"[{self.name}] Based on current evidence, this appears accurate.",
-            f"[{self.name}] The consensus view supports this interpretation.",
-            f"[{self.name}] Research indicates this is generally correct.",
-            f"[{self.name}] This aligns with established understanding."
-        ]
-        
-        return responses[np.random.randint(0, len(responses))]
 
 
 # ============================================================
@@ -473,7 +447,7 @@ class TruthOptima:
     Smart routing with Byzantine verification for high-risk queries.
     """
     
-    def __init__(self, config: Optional[TruthOptimaConfig] = None):
+    def __init__(self, config: Optional[TruthOptimaConfig] = None, models: Optional[Dict[str, LLMInterface]] = None):
         self.config = config or TruthOptimaConfig()
         
         # Core components
@@ -485,8 +459,8 @@ class TruthOptima:
         self.consensus = ByzantineConsensus(self.config)
         self.risk_assessor = RiskAssessor(self.config)
         
-        # LLM models (replace with real APIs)
-        self.models = {
+        # LLM models (passed from outside or use simulators by default)
+        self.models = models or {
             'gpt4': LLMSimulator('GPT-4'),
             'claude': LLMSimulator('Claude'),
             'gemini': LLMSimulator('Gemini'),
@@ -513,17 +487,7 @@ class TruthOptima:
         self.novelty.fit_clusters(embeddings, n_clusters=8)
     
     async def ask(self, question: str) -> TruthOptimaResponse:
-        """
-        Main routing function
-        
-        Flow:
-        1. Embed + Memory influence
-        2. Cache lookup
-        3. If miss: Novelty + Coherence + Risk
-        4. Route decision: FAST or CONSENSUS
-        5. Generate answer
-        6. Update cache + memory
-        """
+        """Main routing function"""
         self.stats['total_queries'] += 1
         
         # ===== STEP 1: Embedding + Memory =====
@@ -551,8 +515,6 @@ class TruthOptima:
         risk = self.risk_assessor.assess(question)
         
         # ===== STEP 4: Routing Decision =====
-        # Force CONSENSUS for high-risk queries
-        # Use FAST for simple, low-risk queries
         use_consensus = (
             risk in [RiskLevel.HIGH, RiskLevel.CRITICAL] or
             N >= self.config.gamma or
@@ -571,29 +533,17 @@ class TruthOptima:
         
         return result
     
-    async def _fast_route(
-        self,
-        question: str,
-        v: np.ndarray,
-        N: float,
-        C: float,
-        risk: RiskLevel
-    ) -> TruthOptimaResponse:
+    async def _fast_route(self, question: str, v: np.ndarray, N: float, C: float, risk: RiskLevel) -> TruthOptimaResponse:
         """Fast route: single best model"""
-        # Use highest-trust model
         best_model_name = max(self.trust_weights.items(), key=lambda x: x[1])[0]
         best_model = self.models[best_model_name]
         
         answer = await best_model.query(question)
         
-        # Compute consistency
         v_answer = self.embedder.encode(answer)
         sigma = self.embedder.similarity(v, v_answer)
-        
-        # Generate proof
         commit = hashlib.sha256(answer.encode()).hexdigest()[:16]
         
-        # Update cache if good
         trust = float(np.clip(0.5 + 0.4 * sigma, 0, 1))
         if sigma >= self.config.tau_sigma and trust >= 0.4:
             self.cache.add(v, answer, trust)
@@ -603,61 +553,42 @@ class TruthOptima:
             route=RouteType.FAST,
             risk_level=risk,
             confidence=float(sigma),
-            cost_estimate=0.0001,  # ~$0.0001 for single small model
+            cost_estimate=0.0001,
             novelty=N,
             coherence=C,
             sigma=sigma,
             commit=commit
         )
     
-    async def _consensus_route(
-        self,
-        question: str,
-        v: np.ndarray,
-        N: float,
-        C: float,
-        risk: RiskLevel
-    ) -> TruthOptimaResponse:
+    async def _consensus_route(self, question: str, v: np.ndarray, N: float, C: float, risk: RiskLevel) -> TruthOptimaResponse:
         """Consensus route: Byzantine verification"""
-        # Query all models in parallel
         responses = await asyncio.gather(*[
             model.query(question)
             for model in self.models.values()
         ])
         
         model_responses = dict(zip(self.models.keys(), responses))
-        
-        # Embed all responses
         embeddings = [self.embedder.encode(resp) for resp in responses]
         
-        # Byzantine consensus
         trust_array = np.array([self.trust_weights[name] for name in self.models.keys()])
         consensus_vec, updated_trust, outliers = self.consensus.consensus(embeddings, trust_array)
         
-        # Update trust weights
         for i, name in enumerate(self.models.keys()):
             self.trust_weights[name] = float(updated_trust[i])
         
-        # Find closest response to consensus
         similarities = [self.embedder.similarity(consensus_vec, emb) for emb in embeddings]
         best_idx = int(np.argmax(similarities))
         answer = responses[best_idx]
         
-        # Compute confidence
         distances = [np.linalg.norm(emb - consensus_vec) for emb in embeddings]
         confidence = 1.0 / (1.0 + np.std(distances))
         
-        # Sigma for chosen answer
         v_answer = self.embedder.encode(answer)
         sigma = self.embedder.similarity(v, v_answer)
-        
-        # Generate proof
         commit = hashlib.sha256(answer.encode()).hexdigest()[:16]
         
-        # Identify outlier models
         outlier_names = [name for name, is_out in zip(self.models.keys(), outliers) if is_out]
         
-        # Cache if verified
         trust = float(np.clip(0.5 + 0.4 * sigma, 0, 1))
         if sigma >= self.config.tau_sigma and confidence >= 0.7:
             self.cache.add(v, answer, trust)
@@ -667,7 +598,7 @@ class TruthOptima:
             route=RouteType.CONSENSUS,
             risk_level=risk,
             confidence=float(confidence),
-            cost_estimate=0.005,  # ~$0.005 for 4 models
+            cost_estimate=0.005,
             novelty=N,
             coherence=C,
             model_responses=model_responses,
@@ -738,14 +669,20 @@ async def demo():
     print("""
     ╔══════════════════════════════════════════════════════════╗
     ║                                                          ║
-    ║                    TRUTHOPTIMA v1.0                      ║
-    ║        Cost-Intelligent AI Router with Byzantine        ║
-    ║              Verification for High-Risk Queries         ║
+    ║                    TRUTHOPTIMA v1.1                      ║
+    ║        Universal API Support & Byzantine Consensus       ║
     ║                                                          ║
     ╚══════════════════════════════════════════════════════════╝
     """)
     
-    # Initialize system
+    # Example of how to use real APIs (commented out for demo)
+    # models = {
+    #     'gpt4': OpenAICompatibleAPI(model_name="gpt-4"),
+    #     'claude': OpenAICompatibleAPI(model_name="claude-3-opus", base_url="https://api.anthropic.com/v1"),
+    # }
+    # system = TruthOptima(models=models)
+    
+    # For demo, we use simulators
     system = TruthOptima()
     
     # Initialize novelty clusters
@@ -807,7 +744,7 @@ async def demo():
         stats['consensus_routes'] * 0.005
     )
     
-    naive_cost = stats['total_queries'] * 0.005  # If everything was consensus
+    naive_cost = stats['total_queries'] * 0.005
     savings = (naive_cost - total_cost) / naive_cost * 100
     
     print(f"\n💰 COST ANALYSIS:")
