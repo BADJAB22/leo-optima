@@ -17,7 +17,7 @@ cd leo-optima
 pip install -r requirements.txt
 
 # Start server
-python proxy_server_enhanced.py
+python proxy_server.py
 ```
 
 ### Option 2: Docker (Recommended)
@@ -255,7 +255,7 @@ python --version  # Should be 3.8+
 pip install -r requirements.txt
 
 # Try verbose mode
-python proxy_server_enhanced.py --debug
+python proxy_server.py --debug
 ```
 
 ### Low Cache Hit Rate
@@ -289,10 +289,10 @@ curl -X POST http://localhost:8000/v1/optimization/enable \
 
 ## 📚 Next Steps
 
-1. **Read Full Documentation**: [README_ENHANCED.md](README_ENHANCED.md)
+1. **Read Full Documentation**: [README.md](README.md)
 2. **API Reference**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
 3. **Technical Details**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
-4. **Single Model Guide**: [leo_optima_single_model_analysis.md](leo_optima_single_model_analysis.md)
+4. **Single Model Guide**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
 
 ---
 
@@ -355,6 +355,6 @@ curl http://localhost:8000/v1/analytics | jq '{
 
 LEO Optima is now running and optimizing your LLM costs. Start seeing savings immediately!
 
-**Questions?** Check the [full documentation](README_ENHANCED.md) or open an issue.
+**Questions?** Check the [full documentation](README.md) or open an issue.
 
 **Happy optimizing!** 🎉
