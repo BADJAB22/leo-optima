@@ -30,8 +30,10 @@ LEO Optima is built on the mathematical foundations of the **Truth-Optima** hybr
 
 ## 📦 Repository Structure
 
-- `Truth-Optima.py`: Main system logic and routing engine.
+- `Truth_Optima.py`: Main system logic and routing engine.
 - `api_interfaces.py`: Universal API abstraction layer (v1.1).
+- `main.py`: Simple CLI entry point for the system.
+- `.env.example`: Template for environment variables.
 - `README.md`: Project documentation and roadmap.
 
 ---
@@ -45,9 +47,15 @@ sudo apt-get install -y build-essential python3-dev
 sudo pip3 install scikit-learn scipy hnswlib openai
 ```
 
-### Running the Demo
+### Usage
+Run the interactive CLI:
 ```bash
-python3 Truth-Optima.py
+python3 main.py --interactive --sim
+```
+
+Or ask a single question:
+```bash
+python3 main.py "What is machine learning?" --sim
 ```
 
 ---
