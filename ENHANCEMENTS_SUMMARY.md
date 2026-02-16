@@ -20,7 +20,7 @@ This document summarizes all enhancements made to LEO Optima for single-model us
 
 ### 2. Enhanced Proxy Server
 
-**File:** `proxy_server_enhanced.py`
+**File:** `proxy_server.py`
 
 **New Features:**
 - ✅ Integrated all 5 optimization strategies
@@ -41,10 +41,10 @@ This document summarizes all enhancements made to LEO Optima for single-model us
 
 | File | Purpose | Status |
 | :--- | :--- | :--- |
-| `README_ENHANCED.md` | Main documentation | ✅ Complete |
+| `README.md` | Main documentation | ✅ Complete |
 | `API_DOCUMENTATION.md` | API reference | ✅ Complete |
 | `QUICKSTART.md` | Getting started guide | ✅ Complete |
-| `leo_optima_single_model_analysis.md` | Technical analysis | ✅ Complete |
+| `TECHNICAL_ANALYSIS.md` | Technical analysis | ✅ Complete |
 | `ENHANCEMENTS_SUMMARY.md` | This file | ✅ Complete |
 
 ---
@@ -62,7 +62,7 @@ This document summarizes all enhancements made to LEO Optima for single-model us
 
 ```bash
 # Option 1: Use new enhanced server
-python proxy_server_enhanced.py
+python proxy_server.py
 
 # Option 2: Keep using old server (still works)
 python proxy_server.py
@@ -123,7 +123,7 @@ class LEOOptimaSingleModel:
 ### New Endpoints
 
 ```python
-# In proxy_server_enhanced.py
+# In proxy_server.py
 
 @app.get("/v1/analytics")
 @app.get("/v1/optimization/status")
@@ -233,7 +233,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
-CMD ["python", "proxy_server_enhanced.py"]
+CMD ["python", "proxy_server.py"]
 ```
 
 ### Kubernetes
@@ -266,12 +266,12 @@ spec:
 
 ```
 leo-optima/
-├── README_ENHANCED.md          ← Main documentation
+├── README.md          ← Main documentation
 ├── API_DOCUMENTATION.md        ← API reference
 ├── QUICKSTART.md               ← Getting started
-├── leo_optima_single_model_analysis.md  ← Technical details
+├── TECHNICAL_ANALYSIS.md  ← Technical details
 ├── ENHANCEMENTS_SUMMARY.md     ← This file
-├── proxy_server_enhanced.py    ← Enhanced server
+├── proxy_server.py    ← Enhanced server
 ├── leo_optima_single_model.py  ← Core implementations
 └── requirements.txt            ← Dependencies
 ```
@@ -338,7 +338,7 @@ leo-optima/
 - **Issues:** GitHub Issues
 - **Discussions:** GitHub Discussions
 - **Email:** support@leo-optima.dev
-- **Documentation:** See README_ENHANCED.md
+- **Documentation:** See README.md
 
 ---
 
