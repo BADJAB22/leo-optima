@@ -99,9 +99,9 @@ client = OpenAI(
 ---
 
 ## 🗺 Roadmap
-- [x] **v1.0:** Core Proxy Logic & Semantic Cache.
-- [x] **v1.1:** Universal API Support & Persistence.
-- [x] **v1.2:** Analytics & "Dollars Saved" Backend.
+For a detailed view of our progress and upcoming features, please refer to the [ROADMAP.md](./ROADMAP.md).
+
+- [x] **v1.0 - v1.2:** Core Proxy, Semantic Cache, and Analytics Backend.
 - [ ] **v1.3:** Multi-tenant Support & API Key Management.
 - [ ] **v1.4:** Analytics UI Dashboard.
 
