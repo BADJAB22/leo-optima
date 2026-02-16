@@ -4,12 +4,12 @@ import httpx
 import json
 import os
 import time
-from core_engine import LeoOptimizer
 from Truth_Optima import TruthOptima
 
 app = FastAPI(title="LEO Optima Universal Proxy")
-optimizer = LeoOptimizer()
+
 # Initialize TruthOptima for advanced routing and analytics
+# We no longer use LeoOptimizer from core_engine.py as TruthOptima is the unified engine.
 truth_system = TruthOptima()
 
 @app.get("/v1/analytics")
@@ -19,7 +19,11 @@ async def get_analytics():
 
 @app.post("/v1/chat/completions")
 async def proxy_chat_completions(request: Request):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        
     messages = body.get("messages", [])
     stream = body.get("stream", False)
     
@@ -27,7 +31,7 @@ async def proxy_chat_completions(request: Request):
     last_user_message = next((m["content"] for m in reversed(messages) if m["role"] == "user"), None)
     
     if not last_user_message:
-        raise HTTPException(status_code=400, detail="No user message found")
+        raise HTTPException(status_code=400, detail="No user message found in 'messages'")
     
     if stream:
         return StreamingResponse(
@@ -38,28 +42,9 @@ async def proxy_chat_completions(request: Request):
     # Use TruthOptima for intelligent routing and analytics tracking
     response_obj = await truth_system.ask(last_user_message)
     
-    # If it's a cache hit, return immediately
-    if response_obj.route.value == "CACHE":
-        return {
-            "id": f"leo-opt-{response_obj.timestamp}",
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "model": body.get("model", "optimized-model"),
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": response_obj.answer},
-                "finish_reason": "stop"
-            }],
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "leo_metrics": {
-                "route": response_obj.route.value,
-                "confidence": response_obj.confidence,
-                "cost_saved": 0.01
-            }
-        }
-
-    return {
-        "id": f"leo-opt-{response_obj.timestamp}",
+    # Format response in OpenAI-compatible format
+    response_data = {
+        "id": f"leo-opt-{int(time.time())}",
         "object": "chat.completion",
         "created": int(time.time()),
         "model": body.get("model", "optimized-model"),
@@ -71,11 +56,22 @@ async def proxy_chat_completions(request: Request):
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "leo_metrics": {
             "route": response_obj.route.value,
-            "confidence": response_obj.confidence,
+            "confidence": round(response_obj.confidence, 4),
             "risk_level": response_obj.risk_level.value,
-            "cost_estimate": response_obj.cost_estimate
+            "cost_estimate": response_obj.cost_estimate,
+            "novelty": round(response_obj.novelty, 4) if response_obj.novelty else None,
+            "coherence": round(response_obj.coherence, 4) if response_obj.coherence else None,
         }
     }
+    
+    if response_obj.proof:
+        response_data["leo_metrics"]["proof"] = {
+            "valid": response_obj.proof.is_valid(truth_system.config.tau_sigma),
+            "commitment": response_obj.proof.commitment,
+            "sigma": round(response_obj.proof.sigma, 4)
+        }
+
+    return response_data
 
 async def stream_generator(question: str, model: str):
     """Generator for OpenAI-compatible SSE streaming"""

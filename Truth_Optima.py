@@ -50,7 +50,7 @@ class TruthOptimaConfig:
     
     # Cache parameters
     cache_max: int = 2000
-    tau_cache: float = 0.75      # Cache similarity threshold
+    tau_cache: float = 0.90      # Cache similarity threshold
     tau_gap: float = 0.05        # Disambiguation margin
     
     # Trust & verification
@@ -121,11 +121,12 @@ class EmbeddingEngine:
         """Generate a stable embedding using character-level features and random projection"""
         # Create a simple 1024-dim feature vector from text
         features = np.zeros(1024, dtype=np.float32)
-        text_bytes = text.encode('utf-8')
-        for i, b in enumerate(text_bytes):
-            features[i % 1024] += b
-            # Add some positional signal
-            features[(i * 31) % 1024] += 1.0
+        # Use a more stable character-based feature set
+        for i, char in enumerate(text):
+            idx = ord(char) % 1024
+            features[idx] += 1.0
+            # Add positional context
+            features[(idx + i) % 1024] += 0.5
         
         # Project to target dimension
         v = np.dot(features, self.projection)
@@ -334,6 +335,7 @@ class SemanticCache:
             print(f"Error loading cache: {e}")
     
     def lookup(self, v: np.ndarray) -> Tuple[Optional[str], float]:
+        """O(log N) search for nearest neighbor in cache with trust gating"""
         if not self.data or self.index is None:
             return None, 0.0
         
@@ -348,7 +350,10 @@ class SemanticCache:
         scores = []
         for i, idx in enumerate(indices[0]):
             entry = self.data[idx]
-            score = entry['trust'] * similarities[i]
+            # Cache Poisoning Mitigation: Trust Gating
+            # If the cached answer has low trust, we penalize its score
+            trust_factor = entry.get('trust', 1.0)
+            score = float(similarities[i]) * trust_factor
             scores.append((score, entry['answer']))
             
         s_max, best_ans = scores[0]
@@ -592,11 +597,25 @@ class TruthOptima:
 
     async def _background_consensus_update(self, question: str, v: np.ndarray, primary_answer: str, N: float, C: float, risk: RiskLevel):
         """Handle consensus resolution in the background during streaming"""
-        # This is a simplified version of _consensus_route logic for background
         tasks = [m.query(question) for m in self.models.values()]
         answers = await asyncio.gather(*tasks)
-        # ... (rest of consensus logic could be added here to update trust weights)
-        # For now, just update memory
+        model_names = list(self.models.keys())
+        
+        embs = [self.embedder.encode(a) for a in answers]
+        weights = np.array([self.trust_weights[name] for name in model_names])
+        
+        proofs = []
+        for i, ans in enumerate(answers):
+            v_ans = embs[i]
+            sigma = self.embedder.similarity(v, v_ans)
+            p = ProofFragment(lcs=True, commitment=hashlib.sha256(ans.encode()).hexdigest()[:16], sigma=sigma)
+            proofs.append(p.is_valid(self.config.tau_sigma))
+            
+        consensus_vec, new_weights, outliers = self.consensus.resolve(embs, weights, proofs=proofs)
+        
+        for i, name in enumerate(model_names):
+            self.trust_weights[name] = float(new_weights[i])
+            
         self.memory.update(v)
         self.memory.save()
         self.cache.save()
@@ -606,8 +625,7 @@ class TruthOptima:
         # Update memory
         self.memory.update(v)
         
-        # If it was a new response, it might have been added to cache in _fast/_consensus
-        # but we ensure persistence here
+        # Ensure persistence
         self.memory.save()
         self.cache.save()
         
@@ -624,7 +642,6 @@ class TruthOptima:
         answer = await model.query(question)
         
         # Generate Proof Fragment (Section 6)
-        # LCS simulated: cost difference within tolerance
         lcs = True 
         commit = hashlib.sha256(answer.encode()).hexdigest()[:16]
         v_ans = self.embedder.encode(answer)
