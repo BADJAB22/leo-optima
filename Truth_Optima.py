@@ -49,11 +49,11 @@ class TruthOptimaConfig:
     
     # Cache parameters
     cache_max: int = 2000
-    tau_cache: float = 0.82      # Cache similarity threshold
-    tau_gap: float = 0.10        # Disambiguation margin
+    tau_cache: float = 0.75      # Cache similarity threshold
+    tau_gap: float = 0.05        # Disambiguation margin
     
     # Trust & verification
-    tau_sigma: float = 0.87      # Semantic consistency requirement
+    tau_sigma: float = 0.75      # Semantic consistency requirement
     eta: float = 0.85            # Trust evolution rate
     eps: float = 0.05            # LCS tolerance
     
@@ -145,9 +145,31 @@ class EmbeddingEngine:
 class MicroMemory:
     """Manages contextual micro-memory with decay (Section 2.3)"""
     
-    def __init__(self, config: TruthOptimaConfig):
+    def __init__(self, config: TruthOptimaConfig, storage_path: Optional[str] = None):
         self.config = config
         self.memory: List[np.ndarray] = []
+        self.storage_path = storage_path
+        if self.storage_path and os.path.exists(self.storage_path):
+            self.load()
+    
+    def save(self):
+        """Persist memory state to disk"""
+        if not self.storage_path:
+            return
+        data = [m.tolist() for m in self.memory]
+        with open(self.storage_path, 'w') as f:
+            json.dump(data, f)
+            
+    def load(self):
+        """Load memory state from disk"""
+        if not self.storage_path or not os.path.exists(self.storage_path):
+            return
+        try:
+            with open(self.storage_path, 'r') as f:
+                data = json.load(f)
+                self.memory = [np.array(m, dtype=np.float32) for m in data]
+        except Exception as e:
+            print(f"Error loading memory: {e}")
     
     def influence(self, v_raw: np.ndarray) -> np.ndarray:
         """v = v_raw + α * sum(sim(v_raw, m) * m)"""
@@ -196,7 +218,11 @@ class NoveltyEngine:
     def fit_clusters(self, corpus_embeddings: np.ndarray, n_clusters: int = 8):
         # Using a simple K-means implementation or random centroids for now
         # to avoid sklearn dependency issues
-        idx = np.random.choice(len(corpus_embeddings), n_clusters, replace=False)
+        n_samples = len(corpus_embeddings)
+        actual_clusters = min(n_clusters, n_samples)
+        if actual_clusters == 0:
+            return
+        idx = np.random.choice(n_samples, actual_clusters, replace=False)
         self.cluster_centers = corpus_embeddings[idx]
     
     def compute(self, v: np.ndarray) -> float:
@@ -252,9 +278,46 @@ class CoherenceEngine:
 class SemanticCache:
     """Trust-weighted semantic cache (Section 5)"""
     
-    def __init__(self, config: TruthOptimaConfig):
+    def __init__(self, config: TruthOptimaConfig, storage_path: Optional[str] = None):
         self.config = config
         self.data: List[Dict] = [] # (vector, answer, trust)
+        self.storage_path = storage_path
+        if self.storage_path and os.path.exists(self.storage_path):
+            self.load()
+            
+    def save(self):
+        """Persist cache state to disk"""
+        if not self.storage_path:
+            return
+        # Convert numpy vectors to lists for JSON serialization
+        serializable_data = []
+        for entry in self.data:
+            serializable_data.append({
+                'vector': entry['vector'].tolist(),
+                'answer': entry['answer'],
+                'trust': entry['trust'],
+                'timestamp': entry['timestamp']
+            })
+        with open(self.storage_path, 'w') as f:
+            json.dump(serializable_data, f)
+            
+    def load(self):
+        """Load cache state from disk"""
+        if not self.storage_path or not os.path.exists(self.storage_path):
+            return
+        try:
+            with open(self.storage_path, 'r') as f:
+                serializable_data = json.load(f)
+                self.data = []
+                for entry in serializable_data:
+                    self.data.append({
+                        'vector': np.array(entry['vector'], dtype=np.float32),
+                        'answer': entry['answer'],
+                        'trust': entry['trust'],
+                        'timestamp': entry['timestamp']
+                    })
+        except Exception as e:
+            print(f"Error loading cache: {e}")
     
     def lookup(self, v: np.ndarray) -> Tuple[Optional[str], float]:
         if not self.data:
@@ -292,8 +355,8 @@ class ByzantineConsensus:
     def __init__(self, config: TruthOptimaConfig):
         self.config = config
         
-    def resolve(self, embeddings: List[np.ndarray], trust_weights: np.ndarray) -> Tuple[np.ndarray, np.ndarray, List[bool]]:
-        """Compute consensus vector and update trust weights"""
+    def resolve(self, embeddings: List[np.ndarray], trust_weights: np.ndarray, proofs: Optional[List[bool]] = None) -> Tuple[np.ndarray, np.ndarray, List[bool]]:
+        """Compute consensus vector and update trust weights based on consensus and proofs"""
         n = len(embeddings)
         stack = np.stack(embeddings)
         
@@ -308,13 +371,21 @@ class ByzantineConsensus:
         # Update trust (Section 8)
         new_trust = trust_weights.copy()
         for i in range(n):
-            if outliers[i]:
-                new_trust[i] *= self.config.trust_decay
+            # T_new = f(T_old, sigma, valid(pi))
+            sigma = float(np.dot(embeddings[i], consensus))
+            is_valid_proof = proofs[i] if proofs else True
+            
+            if outliers[i] or not is_valid_proof:
+                # Penalize outliers or invalid proofs
+                penalty = self.config.trust_decay if outliers[i] else 0.9
+                new_trust[i] *= penalty
             else:
-                # Reward consistency
-                sim = np.dot(embeddings[i], consensus)
-                new_trust[i] = self.config.eta * new_trust[i] + (1 - self.config.eta) * sim
+                # Reward consistency and valid proofs
+                # Monotonic trust update function
+                new_trust[i] = self.config.eta * new_trust[i] + (1 - self.config.eta) * sigma
                 
+        # Ensure trust stays in [0, 1]
+        new_trust = np.clip(new_trust, 0.01, 1.0)
         return consensus, new_trust, outliers.tolist()
 
 
@@ -367,13 +438,17 @@ class TruthOptimaResponse:
 class TruthOptima:
     """The LEO Optima Core Engine"""
     
-    def __init__(self, config: Optional[TruthOptimaConfig] = None, models: Optional[Dict[str, LLMInterface]] = None):
+    def __init__(self, config: Optional[TruthOptimaConfig] = None, models: Optional[Dict[str, LLMInterface]] = None, storage_dir: str = "leo_storage"):
         self.config = config or TruthOptimaConfig()
+        self.storage_dir = storage_dir
+        if not os.path.exists(self.storage_dir):
+            os.makedirs(self.storage_dir)
+            
         self.embedder = EmbeddingEngine(dim=self.config.dim)
-        self.memory = MicroMemory(self.config)
+        self.memory = MicroMemory(self.config, storage_path=os.path.join(self.storage_dir, "memory.json"))
         self.novelty = NoveltyEngine(self.config)
         self.coherence = CoherenceEngine(self.config)
-        self.cache = SemanticCache(self.config)
+        self.cache = SemanticCache(self.config, storage_path=os.path.join(self.storage_dir, "cache.json"))
         self.consensus = ByzantineConsensus(self.config)
         self.risk_assessor = RiskAssessor(self.config)
         
@@ -436,9 +511,86 @@ class TruthOptima:
             self.stats['fast_routes'] += 1
             
         self.stats['total_cost'] += resp.cost_estimate
-        # Update memory and cache
-        self.memory.update(v)
+        
+        # Asynchronous background updates (Section Phase B)
+        asyncio.create_task(self._background_updates(v, resp))
+        
         return resp
+
+    async def stream(self, question: str):
+        """Stream the response, using cache if available, otherwise routing to models"""
+        self.stats['total_queries'] += 1
+        
+        v_raw = self.embedder.encode(question)
+        v = self.memory.influence(v_raw)
+        
+        cached_ans, cache_score = self.cache.lookup(v)
+        if cached_ans:
+            self.stats['cache_hits'] += 1
+            # Simulate streaming for cache hit
+            for word in cached_ans.split():
+                yield word + " "
+                await asyncio.sleep(0.02)
+            return
+
+        N = self.novelty.compute(v)
+        C = self.coherence.compute(v)
+        risk = self.risk_assessor.assess(question)
+        
+        use_consensus = (risk != RiskLevel.LOW) or (N >= self.config.gamma) or (C >= self.config.delta)
+        
+        full_answer = []
+        if use_consensus:
+            # For consensus, we stream from the most trusted model but wait for others to finish for background updates
+            self.stats['consensus_routes'] += 1
+            best_model_name = max(self.trust_weights.items(), key=lambda x: x[1])[0]
+            model = self.models[best_model_name]
+            
+            async for chunk in model.stream(question):
+                full_answer.append(chunk)
+                yield chunk
+            
+            # Background: get other answers for consensus resolution
+            asyncio.create_task(self._background_consensus_update(question, v, "".join(full_answer), N, C, risk))
+        else:
+            self.stats['fast_routes'] += 1
+            best_model_name = max(self.trust_weights.items(), key=lambda x: x[1])[0]
+            model = self.models[best_model_name]
+            
+            async for chunk in model.stream(question):
+                full_answer.append(chunk)
+                yield chunk
+            
+            # Background: update memory and cache
+            answer_str = "".join(full_answer)
+            resp = TruthOptimaResponse(answer=answer_str, route=RouteType.FAST, risk_level=risk, confidence=0.0, cost_estimate=0.0001)
+            asyncio.create_task(self._background_updates(v, resp))
+
+    async def _background_consensus_update(self, question: str, v: np.ndarray, primary_answer: str, N: float, C: float, risk: RiskLevel):
+        """Handle consensus resolution in the background during streaming"""
+        # This is a simplified version of _consensus_route logic for background
+        tasks = [m.query(question) for m in self.models.values()]
+        answers = await asyncio.gather(*tasks)
+        # ... (rest of consensus logic could be added here to update trust weights)
+        # For now, just update memory
+        self.memory.update(v)
+        self.memory.save()
+        self.cache.save()
+
+    async def _background_updates(self, v: np.ndarray, resp: TruthOptimaResponse):
+        """Handle state updates and persistence in the background"""
+        # Update memory
+        self.memory.update(v)
+        
+        # If it was a new response, it might have been added to cache in _fast/_consensus
+        # but we ensure persistence here
+        self.memory.save()
+        self.cache.save()
+        
+        # Save stats
+        stats_path = os.path.join(self.storage_dir, "stats.json")
+        with open(stats_path, 'w') as f:
+            json.dump(self.stats, f)
 
     async def _fast_route(self, question: str, v: np.ndarray, N: float, C: float, risk: RiskLevel) -> TruthOptimaResponse:
         # Pick most trusted model
@@ -480,7 +632,15 @@ class TruthOptima:
         embs = [self.embedder.encode(a) for a in answers]
         weights = np.array([self.trust_weights[name] for name in model_names])
         
-        consensus_vec, new_weights, outliers = self.consensus.resolve(embs, weights)
+        # Generate proof fragments for each model to use in trust evolution
+        proofs = []
+        for i, ans in enumerate(answers):
+            v_ans = embs[i]
+            sigma = self.embedder.similarity(v, v_ans)
+            p = ProofFragment(lcs=True, commitment=hashlib.sha256(ans.encode()).hexdigest()[:16], sigma=sigma)
+            proofs.append(p.is_valid(self.config.tau_sigma))
+        
+        consensus_vec, new_weights, outliers = self.consensus.resolve(embs, weights, proofs=proofs)
         
         # Update system trust
         for i, name in enumerate(model_names):

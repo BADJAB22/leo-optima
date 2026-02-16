@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 import json
 import os
+import time
 from core_engine import LeoOptimizer
 from Truth_Optima import TruthOptima
 
@@ -20,12 +21,19 @@ async def get_analytics():
 async def proxy_chat_completions(request: Request):
     body = await request.json()
     messages = body.get("messages", [])
+    stream = body.get("stream", False)
     
     # Extract the last user message
     last_user_message = next((m["content"] for m in reversed(messages) if m["role"] == "user"), None)
     
     if not last_user_message:
         raise HTTPException(status_code=400, detail="No user message found")
+    
+    if stream:
+        return StreamingResponse(
+            stream_generator(last_user_message, body.get("model", "optimized-model")),
+            media_type="text/event-stream"
+        )
 
     # Use TruthOptima for intelligent routing and analytics tracking
     response_obj = await truth_system.ask(last_user_message)
@@ -35,7 +43,7 @@ async def proxy_chat_completions(request: Request):
         return {
             "id": f"leo-opt-{response_obj.timestamp}",
             "object": "chat.completion",
-            "created": 123456789,
+            "created": int(time.time()),
             "model": body.get("model", "optimized-model"),
             "choices": [{
                 "index": 0,
@@ -50,14 +58,10 @@ async def proxy_chat_completions(request: Request):
             }
         }
 
-    # For non-cache, we'd normally forward to real API, 
-    # but TruthOptima already handles the routing (FAST/CONSENSUS) 
-    # and uses its internal models (simulated or real).
-    
     return {
         "id": f"leo-opt-{response_obj.timestamp}",
         "object": "chat.completion",
-        "created": 123456789,
+        "created": int(time.time()),
         "model": body.get("model", "optimized-model"),
         "choices": [{
             "index": 0,
@@ -72,6 +76,39 @@ async def proxy_chat_completions(request: Request):
             "cost_estimate": response_obj.cost_estimate
         }
     }
+
+async def stream_generator(question: str, model: str):
+    """Generator for OpenAI-compatible SSE streaming"""
+    request_id = f"leo-opt-stream-{int(time.time())}"
+    
+    async for chunk in truth_system.stream(question):
+        data = {
+            "id": request_id,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {"content": chunk},
+                "finish_reason": None
+            }]
+        }
+        yield f"data: {json.dumps(data)}\n\n"
+    
+    # Final chunk
+    final_data = {
+        "id": request_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "delta": {},
+            "finish_reason": "stop"
+        }]
+    }
+    yield f"data: {json.dumps(final_data)}\n\n"
+    yield "data: [DONE]\n\n"
 
 if __name__ == "__main__":
     import uvicorn

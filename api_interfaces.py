@@ -3,7 +3,7 @@ import asyncio
 import os
 import json
 from typing import Dict, Any, Optional
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 class LLMInterface(abc.ABC):
     """Universal interface for any LLM API."""
@@ -11,6 +11,11 @@ class LLMInterface(abc.ABC):
     @abc.abstractmethod
     async def query(self, prompt: str) -> str:
         """Send a prompt to the API and return the response string."""
+        pass
+        
+    @abc.abstractmethod
+    async def stream(self, prompt: str):
+        """Stream the response from the API."""
         pass
 
 class LLMSimulator(LLMInterface):
@@ -32,25 +37,37 @@ class LLMSimulator(LLMInterface):
             f"[{self.name}] This aligns with established understanding."
         ]
         return responses[np.random.randint(0, len(responses))]
+        
+    async def stream(self, prompt: str):
+        full_response = await self.query(prompt)
+        # Simulate streaming by yielding words
+        for word in full_response.split():
+            yield word + " "
+            await asyncio.sleep(0.05)
 
 class OpenAICompatibleAPI(LLMInterface):
     """Implementation for any OpenAI-compatible API (OpenAI, Anthropic via bridge, Local LLMs)."""
     
     def __init__(self, model_name: str, api_key: Optional[str] = None, base_url: Optional[str] = None):
         self.model_name = model_name
-        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"), base_url=base_url)
+        self.client = AsyncOpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"), base_url=base_url)
         
     async def query(self, prompt: str) -> str:
-        # Using run_in_executor since OpenAI client is synchronous
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}]
-            )
+        response = await self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content
+        
+    async def stream(self, prompt: str):
+        response = await self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True
+        )
+        async for chunk in response:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
 
 class GenericRestAPI(LLMInterface):
     """Implementation for any generic REST API that returns JSON."""
