@@ -1,0 +1,35 @@
+{
+    "total_queries": 4,
+    "cache_hits": 0,
+    "fast_routes": 0,
+    "consensus_routes": 4,
+    "total_cost_saved": 0.2,
+    "total_cost_spent": 0.02,
+    "avg_latency_saved_ms": 0.0,
+    "history": [
+        {
+            "timestamp": "2026-02-16T17:53:50.418350",
+            "route": "CONSENSUS",
+            "cost_spent": 0.005,
+            "cost_saved": 0.05
+        },
+        {
+            "timestamp": "2026-02-16T17:53:50.127148",
+            "route": "CONSENSUS",
+            "cost_spent": 0.005,
+            "cost_saved": 0.05
+        },
+        {
+            "timestamp": "2026-02-16T17:53:49.819891",
+            "route": "CONSENSUS",
+            "cost_spent": 0.005,
+            "cost_saved": 0.05
+        },
+        {
+            "timestamp": "2026-02-16T17:53:49.523929",
+            "route": "CONSENSUS",
+            "cost_spent": 0.005,
+            "cost_saved": 0.05
+        }
+    ]
+}

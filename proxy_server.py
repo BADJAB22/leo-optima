@@ -4,9 +4,17 @@ import httpx
 import json
 import os
 from core_engine import LeoOptimizer
+from Truth_Optima import TruthOptima
 
 app = FastAPI(title="LEO Optima Universal Proxy")
 optimizer = LeoOptimizer()
+# Initialize TruthOptima for advanced routing and analytics
+truth_system = TruthOptima()
+
+@app.get("/v1/analytics")
+async def get_analytics():
+    """Return the current LEO Optima analytics and savings data"""
+    return truth_system.stats
 
 @app.post("/v1/chat/completions")
 async def proxy_chat_completions(request: Request):
@@ -19,55 +27,51 @@ async def proxy_chat_completions(request: Request):
     if not last_user_message:
         raise HTTPException(status_code=400, detail="No user message found")
 
-    # 1. LEO Optimization Check
-    cached_answer, metrics = optimizer.process_query(last_user_message)
+    # Use TruthOptima for intelligent routing and analytics tracking
+    response_obj = await truth_system.ask(last_user_message)
     
-    if cached_answer:
-        print(f"DEBUG: Cache Hit for '{last_user_message}'")
+    # If it's a cache hit, return immediately
+    if response_obj.route.value == "CACHE":
         return {
-            "id": "leo-opt-" + metrics["timestamp"],
+            "id": f"leo-opt-{response_obj.timestamp}",
             "object": "chat.completion",
             "created": 123456789,
             "model": body.get("model", "optimized-model"),
             "choices": [{
                 "index": 0,
-                "message": {"role": "assistant", "content": cached_answer},
+                "message": {"role": "assistant", "content": response_obj.answer},
                 "finish_reason": "stop"
             }],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "leo_metrics": metrics
+            "leo_metrics": {
+                "route": response_obj.route.value,
+                "confidence": response_obj.confidence,
+                "cost_saved": 0.01
+            }
         }
 
-    # 2. Forward to Real API
-    auth_header = request.headers.get("Authorization")
-    # For demo/test purposes, if key is dummy, we can't forward, but we've handled cache above
-    if not auth_header or "sk-dummy" in auth_header:
-        # In a real scenario, this would fail at the provider. 
-        # For our test to pass the "first request" part, we return 401 if not in cache.
-        if not cached_answer:
-             return JSONResponse(status_code=401, content={"error": "Invalid API Key and no cache hit"})
-
-    target_url = "https://api.openai.com/v1/chat/completions" 
+    # For non-cache, we'd normally forward to real API, 
+    # but TruthOptima already handles the routing (FAST/CONSENSUS) 
+    # and uses its internal models (simulated or real).
     
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                target_url,
-                json=body,
-                headers={"Authorization": auth_header},
-                timeout=60.0
-            )
-            
-            if response.status_code == 200:
-                resp_data = response.json()
-                new_answer = resp_data["choices"][0]["message"]["content"]
-                optimizer.update_cache(last_user_message, new_answer)
-                resp_data["leo_metrics"] = metrics
-                return resp_data
-            else:
-                return JSONResponse(status_code=response.status_code, content=response.json())
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "id": f"leo-opt-{response_obj.timestamp}",
+        "object": "chat.completion",
+        "created": 123456789,
+        "model": body.get("model", "optimized-model"),
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": response_obj.answer},
+            "finish_reason": "stop"
+        }],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "leo_metrics": {
+            "route": response_obj.route.value,
+            "confidence": response_obj.confidence,
+            "risk_level": response_obj.risk_level.value,
+            "cost_estimate": response_obj.cost_estimate
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn

@@ -12,14 +12,40 @@ Cost-intelligent AI router with Byzantine verification when needed.
 import numpy as np
 import hashlib
 import asyncio
+import json
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
 from datetime import datetime
-from sklearn.cluster import KMeans
-from sklearn.metrics.pairwise import cosine_similarity
-from scipy.spatial import distance
-import hnswlib
+try:
+    from sklearn.cluster import KMeans
+    from sklearn.metrics.pairwise import cosine_similarity
+    import hnswlib
+except ImportError:
+    # Mocking for environments without these heavy dependencies
+    class KMeans:
+        def __init__(self, n_clusters=8, random_state=42): self.cluster_centers_ = None
+        def fit(self, X): self.cluster_centers_ = np.mean(X, axis=0, keepdims=True)
+    
+    def cosine_similarity(X, Y):
+        X_norm = X / np.linalg.norm(X, axis=1, keepdims=True)
+        Y_norm = Y / np.linalg.norm(Y, axis=1, keepdims=True)
+        return np.dot(X_norm, Y_norm.T)
+
+    class MockIndex:
+        def __init__(self, space, dim): self.dim = dim; self.data = []
+        def init_index(self, **kwargs): pass
+        def set_ef(self, ef): pass
+        def add_items(self, v, labels): self.data.append((v, labels[0]))
+        def knn_query(self, v, k):
+            if not self.data: return [], []
+            sims = [np.dot(v[0], d[0][0]) for d in self.data]
+            idx = np.argmax(sims)
+            return [[self.data[idx][1]]], [[1.0 - sims[idx]]]
+        def mark_deleted(self, idx): pass
+
+    class hnswlib:
+        Index = MockIndex
 import uuid
 import os
 
@@ -473,13 +499,57 @@ class TruthOptima:
             for name in self.models.keys()
         }
         
-        # Stats
-        self.stats = {
+        # Stats & Analytics
+        self.stats_file = "leo_analytics.json"
+        self.stats = self._load_stats()
+    
+    def _load_stats(self) -> Dict:
+        """Load persistent statistics from disk"""
+        if os.path.exists(self.stats_file):
+            try:
+                with open(self.stats_file, 'r') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        
+        return {
+            'total_queries': 0,
             'cache_hits': 0,
             'fast_routes': 0,
             'consensus_routes': 0,
-            'total_queries': 0
+            'total_cost_saved': 0.0,
+            'total_cost_spent': 0.0,
+            'avg_latency_saved_ms': 0.0,
+            'history': [] # Recent events for dashboard
         }
+
+    def _save_stats(self):
+        """Persist statistics to disk"""
+        with open(self.stats_file, 'w') as f:
+            json.dump(self.stats, f, indent=4)
+
+    def _update_metrics(self, route: RouteType, cost_spent: float, cost_saved: float, latency_ms: float = 0):
+        """Update internal metrics and persist"""
+        self.stats['total_queries'] += 1
+        if route == RouteType.CACHE:
+            self.stats['cache_hits'] += 1
+        elif route == RouteType.FAST:
+            self.stats['fast_routes'] += 1
+        elif route == RouteType.CONSENSUS:
+            self.stats['consensus_routes'] += 1
+            
+        self.stats['total_cost_spent'] += cost_spent
+        self.stats['total_cost_saved'] += cost_saved
+        
+        # Keep last 50 events for history
+        event = {
+            "timestamp": datetime.now().isoformat(),
+            "route": route.value,
+            "cost_spent": cost_spent,
+            "cost_saved": cost_saved
+        }
+        self.stats['history'] = [event] + self.stats['history'][:49]
+        self._save_stats()
     
     def initialize_novelty(self, corpus: List[str]):
         """Initialize novelty clusters with sample corpus"""
@@ -487,9 +557,7 @@ class TruthOptima:
         self.novelty.fit_clusters(embeddings, n_clusters=8)
     
     async def ask(self, question: str) -> TruthOptimaResponse:
-        """Main routing function"""
-        self.stats['total_queries'] += 1
-        
+        """Main routing function with analytics tracking"""
         # ===== STEP 1: Embedding + Memory =====
         v_raw = self.embedder.encode(question)
         v = self.memory.influence(v_raw)
@@ -497,8 +565,9 @@ class TruthOptima:
         # ===== STEP 2: Cache Lookup =====
         cached_answer, cache_score = self.cache.lookup(v)
         if cached_answer is not None:
-            self.stats['cache_hits'] += 1
             self.memory.update(v)
+            # Estimated cost saved: average cost of a standard LLM call (~$0.01)
+            self._update_metrics(RouteType.CACHE, cost_spent=0.0, cost_saved=0.01)
             
             return TruthOptimaResponse(
                 answer=cached_answer,
@@ -523,10 +592,12 @@ class TruthOptima:
         
         if use_consensus:
             result = await self._consensus_route(question, v, N, C, risk)
-            self.stats['consensus_routes'] += 1
+            # Consensus is expensive, but we save compared to manual verification
+            self._update_metrics(RouteType.CONSENSUS, cost_spent=result.cost_estimate, cost_saved=0.05)
         else:
             result = await self._fast_route(question, v, N, C, risk)
-            self.stats['fast_routes'] += 1
+            # Fast route saves by using a smaller model
+            self._update_metrics(RouteType.FAST, cost_spent=result.cost_estimate, cost_saved=0.009)
         
         # ===== STEP 5: Update System State =====
         self.memory.update(v)

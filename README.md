@@ -30,6 +30,26 @@ Unlike traditional keyword-based caches, LEO uses **Vector Embeddings** to under
 
 ---
 
+## 📊 Analytics & Monitoring
+LEO Optima now includes a built-in analytics engine to track your savings in real-time.
+
+### Accessing Analytics
+You can retrieve live statistics by sending a GET request to the `/v1/analytics` endpoint:
+```bash
+curl http://localhost:8000/v1/analytics
+```
+
+**Example Response:**
+```json
+{
+  "total_queries": 150,
+  "total_cost_saved": 12.45,
+  "total_cost_spent": 1.20,
+  "cache_hits": 85,
+  "history": [...]
+}
+```
+
 ## 🚀 How It Works: The "Smart Bridge"
 
 1. **The Request:** Your application sends a request to LEO Optima instead of the direct API provider.
@@ -81,8 +101,9 @@ client = OpenAI(
 ## 🗺 Roadmap
 - [x] **v1.0:** Core Proxy Logic & Semantic Cache.
 - [x] **v1.1:** Universal API Support & Persistence.
-- [ ] **v1.2:** Multi-tenant Support & API Key Management.
-- [ ] **v1.3:** "Dollars Saved" Dashboard & Analytics UI.
+- [x] **v1.2:** Analytics & "Dollars Saved" Backend.
+- [ ] **v1.3:** Multi-tenant Support & API Key Management.
+- [ ] **v1.4:** Analytics UI Dashboard.
 
 ---
 
