@@ -1,47 +1,45 @@
-# 🗺 LEO Optima Project Roadmap
+# LEO Optima: Development Roadmap
 
-This document outlines the current state of the LEO Optima project, what has been achieved, and the planned future enhancements.
-
----
-
-## ✅ Completed Milestones
-
-### v1.0: Core Proxy Logic & Semantic Cache
-- [x] Basic FastAPI proxy server implementation.
-- [x] Semantic caching using vector embeddings (SimpleEmbedding).
-- [x] Persistence for the semantic cache (`leo_cache.json`).
-
-### v1.1: Universal API Support & Persistence
-- [x] Integration with OpenAI-compatible APIs.
-- [x] Support for simulated LLM responses for testing.
-- [x] HNSW-based semantic cache for high-speed lookups.
-
-### v1.2: Analytics & "Dollars Saved" Backend (Latest)
-- [x] **Cost Tracking Engine:** Implemented logic to estimate costs spent vs. costs saved based on routing decisions.
-- [x] **Persistent Analytics:** Added `leo_analytics.json` to store long-term performance data.
-- [x] **Analytics API:** Created the `/v1/analytics` endpoint for real-time monitoring.
-- [x] **Environment Compatibility:** Added dependency mocking for `scikit-learn` and `hnswlib` to ensure the system runs in lightweight environments.
+This document outlines the current status of the LEO Optima project, what has been achieved, and the planned future enhancements.
 
 ---
 
-## 🛠 Pending Tasks (Next Steps)
+## ✅ Phase A: Core Technology Foundation (Completed)
+We have successfully transitioned from a simulated prototype to a functional core technology engine, implementing the mathematical foundations specified in the whitepaper.
 
-### v1.3: Multi-tenant Support & API Key Management
-- [ ] **User Authentication:** Implement API key validation for different users/clients.
-- [ ] **Usage Quotas:** Add the ability to set token or dollar limits per API key.
-- [ ] **Tenant Isolation:** Ensure that caches and analytics can be separated by user if required.
+### 1. High-Performance Semantic Foundation
+- [x] **Lightweight Semantic Engine**: Implemented stable random projection (Johnson-Lindenstrauss) for zero-dependency embeddings.
+- [x] **Contextual Micro-Memory**: Added Section 2.2 & 2.3 memory influence and decay rules.
 
-### v1.4: Analytics UI Dashboard
-- [ ] **Web Dashboard:** Create a React/Next.js frontend to visualize the data from `/v1/analytics`.
-- [ ] **Visualizations:** Add charts for "Savings Over Time," "Route Distribution," and "Latency Reduction."
-- [ ] **Export Tools:** Allow users to export savings reports as PDF or CSV.
+### 2. Intelligent Routing & Metrics
+- [x] **Novelty Engine**: Section 3 implementation using regional entropy and cluster deviation.
+- [x] **Refined ADMM Coherence**: Improved the stability of the Coherence Engine using iterative proximal updates.
+- [x] **Byzantine-Robust Consensus**: Enhanced multi-model verification with weighted trust and outlier detection.
 
-### v1.5: Advanced Routing & Optimization
-- [ ] **Dynamic Thresholding:** Automatically adjust semantic cache thresholds based on feedback.
-- [ ] **Provider Failover:** Automatically switch between LLM providers (e.g., OpenAI to Anthropic) if one is down.
-- [ ] **Local Model Integration:** Native support for running small local models (like Llama-3-8B) for the FAST route.
+### 3. Verifiable Optimization Proofs
+- [x] **Proof Fragments**: Section 6 implementation of verifiable fragments including **LCS** (Local Constraint Satisfaction), **Commitment Hash**, and **Sigma** (Semantic Consistency).
 
 ---
 
-## 📝 Note for Future Developers
-The core logic resides in `Truth_Optima.py`. When adding new features, ensure that the `TruthOptima` class remains the central orchestrator for routing and analytics to maintain consistency.
+## 🚀 Phase B: Production-Ready Features (Next Steps)
+The focus now shifts toward making the system robust and scalable for real-world production use.
+
+- [ ] **Asynchronous State Management**: Move cache and memory updates to background workers to minimize request latency.
+- [ ] **Streaming Support**: Enable server-sent events (SSE) in the `proxy_server.py` for real-time LLM responses.
+- [ ] **Persistent Vector Storage**: Implement a file-based storage for the semantic cache and micro-memory states.
+- [ ] **Advanced Trust Evolution**: Implement the full monotonic trust update function $T_{new} = f(T_{old}, \sigma, valid(\pi))$.
+
+---
+
+## 🛡️ Phase C: Security & Scaling
+- [ ] **HNSW Indexing**: Integrate `hnswlib` or `faiss` for efficient O(log N) search in large caches.
+- [ ] **Cache Poisoning Mitigation**: Implement trust gating and disambiguation margins to prevent adversarial attacks.
+- [ ] **Multi-Tenant Proxy**: Support for multiple API keys and user-specific optimization policies.
+- [ ] **Analytics Dashboard**: A visual interface to track cost savings, latency reduction, and routing accuracy.
+
+---
+
+## 📈 Long-Term Vision
+- **Cross-Platform SDKs**: Native LEO Optima clients for Python, JavaScript, and Go.
+- **On-Device Optimization**: Ultra-lightweight versions for mobile and edge devices.
+- **Decentralized Verification**: Using the Proof Fragments for multi-party verifiable AI outputs.
