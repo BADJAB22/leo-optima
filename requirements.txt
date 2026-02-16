@@ -1,1 +1,8 @@
+numpy
 scikit-learn
+fastapi
+uvicorn
+httpx
+openai
+python-dotenv
+python-multipart

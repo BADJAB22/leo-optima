@@ -4,7 +4,7 @@ LEO Optima is a high-performance routing and optimization engine that sits betwe
 
 ---
 
-## Key Features (Phase A Implemented)
+## Key Features (Phase A, B & C Implemented)
 
 ### 1. Lightweight Semantic Foundation
 We have implemented a high-performance **Johnson-Lindenstrauss Projection** based embedding engine. This allows for:
@@ -21,6 +21,9 @@ Each response now includes a `ProofFragment` object:
 The Coherence Engine now uses a refined **Alternating Direction Method of Multipliers (ADMM)** to calculate the consensus stability of a query. 
 - High coherence ($C < \delta$) indicates a stable, well-understood query.
 - Low coherence ($C \ge \delta$) triggers the **CONSENSUS** route for higher reliability.
+
+### 4. Cache Poisoning Mitigation
+The `SemanticCache` now includes **Trust Gating**. Cached answers are weighted by the trust score of the model that generated them. If a model's trust falls below a threshold, its cached entries are effectively ignored, preventing adversarial "poisoning" of the semantic cache.
 
 ---
 
@@ -57,3 +60,4 @@ if response.proof.is_valid(tau_sigma=0.87):
 - **Memory Max**: 32 vectors
 - **Cache Max**: 2000 entries
 - **Consensus**: Byzantine-robust weighted mean with outlier detection.
+- **Cache Poisoning Mitigation**: Implemented via trust gating in `SemanticCache`.
