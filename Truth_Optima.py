@@ -619,8 +619,27 @@ class TruthOptima:
         embs = np.stack([self.embedder.encode(t) for t in corpus])
         self.novelty.fit_clusters(embs)
 
-    async def ask(self, question: str) -> TruthOptimaResponse:
+    def get_tenant_stats(self, tenant_id: str) -> Dict:
+        """Get stats for a specific tenant from persistent storage"""
+        stats_path = os.path.join(self.storage_dir, f"stats_{tenant_id}.json")
+        if os.path.exists(stats_path):
+            with open(stats_path, 'r') as f:
+                return json.load(f)
+        return {
+            'total_queries': 0,
+            'cache_hits': 0,
+            'fast_routes': 0,
+            'consensus_routes': 0,
+            'total_cost': 0.0
+        }
+
+    async def ask(self, question: str, tenant_id: str = "default") -> TruthOptimaResponse:
         self.stats['total_queries'] += 1
+        
+        # Tenant-specific stats tracking
+        tenant_stats = self.get_tenant_stats(tenant_id)
+        tenant_stats['total_queries'] += 1
+        
         audit_log = []
         
         # 1. Embedding + Memory Influence (Section 2)
@@ -632,6 +651,8 @@ class TruthOptima:
         cached_ans, cache_score = self.cache.lookup(v)
         if cached_ans:
             self.stats['cache_hits'] += 1
+            tenant_stats['cache_hits'] += 1
+            self._save_tenant_stats(tenant_id, tenant_stats)
             audit_log.append({"event": "cache_hit", "score": cache_score})
             return TruthOptimaResponse(
                 answer=cached_ans,
@@ -661,13 +682,17 @@ class TruthOptima:
         if use_consensus:
             resp = await self._consensus_route(question, v, N, C, risk)
             self.stats['consensus_routes'] += 1
+            tenant_stats['consensus_routes'] += 1
         else:
             resp = await self._fast_route(question, v, N, C, risk)
             self.stats['fast_routes'] += 1
+            tenant_stats['fast_routes'] += 1
             
         resp.audit_log = audit_log + (resp.audit_log or [])
             
         self.stats['total_cost'] += resp.cost_estimate
+        tenant_stats['total_cost'] += resp.cost_estimate
+        self._save_tenant_stats(tenant_id, tenant_stats)
         
         # Asynchronous background updates (Section Phase B)
         asyncio.create_task(self._background_updates(v, resp))
@@ -748,6 +773,12 @@ class TruthOptima:
         self.memory.save()
         self.cache.save()
 
+    def _save_tenant_stats(self, tenant_id: str, stats: Dict):
+        """Persist tenant-specific stats"""
+        stats_path = os.path.join(self.storage_dir, f"stats_{tenant_id}.json")
+        with open(stats_path, 'w') as f:
+            json.dump(stats, f)
+
     async def _background_updates(self, v: np.ndarray, resp: TruthOptimaResponse):
         """Handle state updates and persistence in the background"""
         # Update memory
@@ -757,7 +788,7 @@ class TruthOptima:
         self.memory.save()
         self.cache.save()
         
-        # Save stats
+        # Save global stats
         stats_path = os.path.join(self.storage_dir, "stats.json")
         with open(stats_path, 'w') as f:
             json.dump(self.stats, f)
