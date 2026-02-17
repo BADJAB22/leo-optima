@@ -1,9 +1,0 @@
-Total Queries: 115
-Cache Hit Rate: 0.00%
-Average Response Time (s): 0.6140
-Max Response Time (s): 0.8565
-Average Cost per Query: 0.005000
-Total Simulated Cost: 0.575000
-Risk Assessment Accuracy: 94.78%
-Consensus Route Percentage: 100.00%
-Fast Route Percentage: 0.00%
