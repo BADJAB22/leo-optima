@@ -65,7 +65,7 @@ class TruthOptimaConfig:
     
     # Cache parameters
     cache_max: int = 2000
-    tau_cache: float = 0.85      # Cache similarity threshold
+    tau_cache: float = 0.70      # Optimized: Lowered from 0.85 to 0.70 to increase hit rate while maintaining relevance
     tau_gap: float = 0.05        # Disambiguation margin
     
     # Trust & verification

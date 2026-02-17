@@ -235,7 +235,7 @@ class PromptOptimizer:
     
     def _remove_redundancy(self, text: str) -> str:
         """
-        Remove redundant phrases and words.
+        Remove redundant phrases and words with aggressive cleaning.
         """
         redundant_phrases = {
             'please ': '',
@@ -244,13 +244,28 @@ class PromptOptimizer:
             'would you ': '',
             'i would like to ': '',
             'i need you to ': '',
+            'tell me ': '',
+            'explain to me ': '',
+            'what is ': '',
+            'how do i ': '',
+            'give me ': '',
+            'show me ': '',
+            'can you tell me ': '',
+            'do you know ': '',
         }
         
-        result = text
+        result = text.lower()
         for phrase, replacement in redundant_phrases.items():
-            result = result.lower().replace(phrase, replacement)
+            result = result.replace(phrase, replacement)
         
-        return result
+        # Clean up any resulting double spaces and trim
+        result = ' '.join(result.split()).strip()
+        
+        # If the result ends with a question mark and is now just a keyword, keep it clean
+        if result.endswith('?'):
+            result = result[:-1].strip()
+            
+        return result if result else text
     
     def _compress_context(self, context: str) -> str:
         """
