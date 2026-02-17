@@ -112,9 +112,12 @@ class SmartRiskAssessor:
     def _assess_with_keywords(self, prompt: str) -> RiskLevel:
         prompt_lower = prompt.lower()
         hits = 0
+        # More sensitive keyword matching
         for category, keywords in self.fallback_keywords.items():
-            if any(kw in prompt_lower for kw in keywords):
-                hits += 1
+            for kw in keywords:
+                if kw in prompt_lower:
+                    hits += 1
+                    break # One hit per category
         
         if hits >= 2: return RiskLevel.CRITICAL
         if hits == 1: return RiskLevel.HIGH

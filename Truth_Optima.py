@@ -478,11 +478,16 @@ class TruthOptima:
 
     async def _assess_risk(self, prompt: str) -> RiskLevel:
         if SMART_RISK_AVAILABLE and self.risk_assessor:
+            # Use the smart assessor if available
             return await self.risk_assessor.assess(prompt)
         
         # Fallback keyword logic
         prompt_lower = prompt.lower()
-        hits = sum(1 for keywords in self.config.high_risk_keywords.values() if any(kw in prompt_lower for kw in keywords))
+        hits = 0
+        for keywords in self.config.high_risk_keywords.values():
+            if any(kw in prompt_lower for kw in keywords):
+                hits += 1
+        
         if hits >= 2: return RiskLevel.CRITICAL
         if hits == 1: return RiskLevel.HIGH
         return RiskLevel.LOW
@@ -520,7 +525,14 @@ class TruthOptima:
             
         resp.audit_log = audit_log + (resp.audit_log or [])
         self.stats['total_cost'] += resp.cost_estimate
-        asyncio.create_task(self._background_updates(v, resp))
+        
+        # 5. Background Updates (Memory and Cache)
+        # Memory is updated with the context of the current query
+        self.memory.update(v)
+        # Cache is only updated for non-cached responses
+        if resp.route != RouteType.CACHE:
+            self.cache.add(v, resp.answer, resp.confidence)
+            
         return resp
 
     async def _fast_route(self, question: str, v: np.ndarray, N: float, C: float, risk: RiskLevel) -> TruthOptimaResponse:
@@ -557,8 +569,3 @@ class TruthOptima:
             outliers=[list(self.models.keys())[i] for i, is_outlier in enumerate(outliers) if is_outlier],
             trust_scores=self.trust_weights.copy()
         )
-
-    async def _background_updates(self, v: np.ndarray, resp: TruthOptimaResponse):
-        self.memory.update(v)
-        if resp.route != RouteType.CACHE:
-            self.cache.add(v, resp.answer, resp.confidence)

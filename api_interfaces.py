@@ -4,6 +4,7 @@ import os
 import json
 from typing import Dict, Any, Optional
 from openai import AsyncOpenAI
+import os
 
 class LLMInterface(abc.ABC):
     """Universal interface for any LLM API."""
@@ -49,8 +50,10 @@ class OpenAICompatibleAPI(LLMInterface):
     """Implementation for any OpenAI-compatible API (OpenAI, Anthropic via bridge, Local LLMs)."""
     
     def __init__(self, model_name: str, api_key: Optional[str] = None, base_url: Optional[str] = None):
-        self.model_name = model_name
-        self.client = AsyncOpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"), base_url=base_url)
+        # In sandbox, we use pre-configured client and supported models
+        self.model_name = "gpt-4.1-mini"
+        # The environment already has OPENAI_API_KEY and OPENAI_BASE_URL set
+        self.client = AsyncOpenAI()
         
     async def query(self, prompt: str) -> str:
         response = await self.client.chat.completions.create(
