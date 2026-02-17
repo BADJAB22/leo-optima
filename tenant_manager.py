@@ -61,7 +61,7 @@ class TenantManager:
         cursor.execute("SELECT COUNT(*) FROM tenants")
         if cursor.fetchone()[0] == 0:
             admin_key = os.getenv("LEO_API_KEY", "leo_admin_secret_key")
-            self.create_tenant("Admin", api_key=admin_key, tier="enterprise", token_quota=10**9, cost_limit=10**6)
+            self.create_tenant("Admin", api_key=admin_key, token_quota=10**9, cost_limit=10**6)
         
         conn.commit()
         conn.close()

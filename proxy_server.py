@@ -12,6 +12,8 @@ from Truth_Optima import TruthOptima
 from api_interfaces import (
     LLMInterface,
     LLMSimulator,
+)
+from leo_optima_single_model import (
     PromptOptimizer,
     ConfidenceScorer,
 )
@@ -31,11 +33,6 @@ app.add_middleware(
 
 # Multi-Tenant Identity Manager
 tenant_manager = TenantManager()
-
-async def get_admin_tenant(tenant: Tenant = Depends(get_current_tenant)):
-    # In community version, all valid keys can access analytics for now
-    # or you can implement a specific admin flag in the DB
-    return tenant
 
 # API Key Security
 API_KEY_NAME = "X-API-Key"
@@ -59,6 +56,11 @@ async def get_current_tenant(
     if not tenant_manager.check_quota(tenant):
         raise HTTPException(status_code=429, detail="Quota exceeded for this tenant")
         
+    return tenant
+
+async def get_admin_tenant(tenant: Tenant = Depends(get_current_tenant)):
+    # In community version, all valid keys can access analytics for now
+    # or you can implement a specific admin flag in the DB
     return tenant
 
 # Initialize TruthOptima for advanced routing
@@ -147,7 +149,7 @@ async def get_analytics(tenant: Tenant = Depends(get_current_tenant)):
                 'cost_limit': tenant.cost_limit
             }
         },
-        'leo_optima_stats': truth_system.get_tenant_stats(tenant.id),
+        'leo_optima_stats': truth_system.get_stats(),
         'optimization_metrics': metrics.get_summary(),
         'timestamp': datetime.now().isoformat()
     }

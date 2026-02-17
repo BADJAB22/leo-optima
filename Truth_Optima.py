@@ -16,7 +16,7 @@ import json
 import os
 import uuid
 import sqlite3
-import redis
+# import redis
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple, Any
 from enum import Enum
@@ -285,12 +285,14 @@ class SemanticCache:
         self.data: List[Dict] = []
         self.index = None
         
+        self.use_redis = False
         try:
+            import redis
             self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
             self.redis.ping()
             self.use_redis = True
         except:
-            self.use_redis = False
+            pass
 
         if self.db_path:
             self._init_db()
@@ -475,6 +477,9 @@ class TruthOptima:
         
         self.trust_weights = {name: 0.9 for name in self.models.keys()}
         self.stats = {'total_queries': 0, 'cache_hits': 0, 'fast_routes': 0, 'consensus_routes': 0, 'total_cost': 0.0}
+
+    def get_stats(self):
+        return self.stats
 
     async def _assess_risk(self, prompt: str) -> RiskLevel:
         if SMART_RISK_AVAILABLE and self.risk_assessor:
