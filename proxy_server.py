@@ -13,7 +13,7 @@ from leo_optima_single_model import (
     ConfidenceScorer,
 )
 
-app = FastAPI(title="LEO Optima Universal Proxy v2.0")
+app = FastAPI(title="LEO Optima Universal Proxy v1.0")
 
 # Initialize TruthOptima for advanced routing
 truth_system = TruthOptima()
@@ -334,7 +334,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "2.0",
+        "version": "1.0",
         "optimizations_active": sum(1 for v in OPTIMIZATION_CONFIG.values() if v)
     }
 
