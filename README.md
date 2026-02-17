@@ -8,6 +8,17 @@
 
 ## 🚀 Key Features
 
+### Enterprise Dashboard
+
+LEO Optima now includes a professional web dashboard for monitoring and managing your multi-tenant infrastructure. Features include:
+- **Real-time Metrics**: Monitor cost savings, token optimization, and cache performance
+- **Multi-Tenant Management**: View and manage multiple tenant accounts with isolated analytics
+- **API Key Management**: Securely generate and manage API keys for different service tiers
+- **Performance Visualizations**: Interactive charts showing optimization routes and trends
+- **Usage Quotas**: Track token usage and cost limits per tenant
+
+See [DASHBOARD.md](./DASHBOARD.md) for detailed documentation.
+
 ### Core Features
 
 | Feature | Benefit | Status |
@@ -23,6 +34,16 @@
 | **SQLite Persistence** | Robust, scalable storage for semantic cache and micro-memory | ✅ Active |
 
 **Combined Savings: 60-80% reduction in API costs**
+
+---
+
+## 📚 Documentation
+
+- [DASHBOARD.md](./DASHBOARD.md) - Enterprise Dashboard guide and component library
+- [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Complete API reference with examples
+- [QUICKSTART.md](./QUICKSTART.md) - Get started in 5 minutes
+- [TECHNICAL_ANALYSIS.md](./TECHNICAL_ANALYSIS.md) - Deep dive into the architecture
+- [ENHANCEMENTS_SUMMARY.md](./ENHANCEMENTS_SUMMARY.md) - Latest improvements and features
 
 ---
 
@@ -76,6 +97,7 @@ docker compose up --build -d
 ```
 
 Server will be accessible at `http://localhost:8000`.
+The Enterprise Dashboard will be available at `http://localhost:3000`.
 
 ### Manual Quick Start (for development/testing)
 

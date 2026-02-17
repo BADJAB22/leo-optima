@@ -33,6 +33,7 @@ docker compose up --build -d
 ```
 
 LEO Optima will be accessible at `http://localhost:8000`. Redis will be running internally and used automatically.
+The Enterprise Dashboard will be accessible at `http://localhost:3000`.
 
 ### Option 2: Manual Installation (for Development/Testing)
 
@@ -54,6 +55,7 @@ python proxy_server.py
 ```
 
 **Server should start on `http://localhost:8000`**
+**Dashboard will be available at `http://localhost:3000`**
 
 ---
 
@@ -125,7 +127,17 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 ## 📊 Monitor Savings (1 minute)
 
-### Check Analytics (with API Key)
+### Access the Dashboard
+
+Open your browser and navigate to `http://localhost:3000` to see:
+- **Real-time metrics**: Cost savings, tokens optimized, cache hit rate
+- **Performance charts**: Cost and token trends over time
+- **Request distribution**: Cache, Fast, and Consensus route breakdown
+- **Multi-tenant performance**: Per-tenant usage and savings
+
+For detailed dashboard documentation, see [DASHBOARD.md](./DASHBOARD.md).
+
+### Check Analytics via API (with API Key)
 
 ```bash
 curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics | jq 
@@ -343,9 +355,10 @@ curl -X POST http://localhost:8000/v1/optimization/enable \
 
 ## 📚 Next Steps
 
-1.  **Read Full Documentation**: [README.md](README.md)
-2.  **API Reference**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-3.  **Technical Details**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
+1.  **Dashboard Guide**: [DASHBOARD.md](./DASHBOARD.md)
+2.  **Read Full Documentation**: [README.md](README.md)
+3.  **API Reference**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+4.  **Technical Details**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
 
 ---
 
