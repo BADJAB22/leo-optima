@@ -39,6 +39,7 @@ See [DASHBOARD.md](./DASHBOARD.md) for detailed documentation.
 
 ## 📚 Documentation
 
+- **[USER_GUIDE.md](./USER_GUIDE.md)** - Complete user onboarding (START HERE!)
 - [DASHBOARD.md](./DASHBOARD.md) - Enterprise Dashboard guide and component library
 - [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Complete API reference with examples
 - [QUICKSTART.md](./QUICKSTART.md) - Get started in 5 minutes
