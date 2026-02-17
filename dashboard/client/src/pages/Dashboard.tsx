@@ -11,7 +11,6 @@ interface AnalyticsData {
   tenant: {
     id: string;
     name: string;
-    tier: string;
     usage: {
       tokens_used: number;
       token_quota: number;
@@ -87,8 +86,7 @@ export default function Dashboard() {
   };
 
   const tenant = data?.tenant || {
-    name: 'Loading...',
-    tier: 'free'
+    name: 'Loading...'
   };
 
   const routeDistribution = [
@@ -97,10 +95,10 @@ export default function Dashboard() {
   ];
 
   return (
-    <DashboardLayout currentTenant={{ id: tenant.id, name: tenant.name, tier: tenant.tier }}>
+    <DashboardLayout currentTenant={{ id: tenant.id, name: tenant.name }}>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Community Dashboard</h1>
           <p className="text-muted-foreground">Real-time performance metrics for {tenant.name}.</p>
         </div>
 

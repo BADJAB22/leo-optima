@@ -18,7 +18,7 @@ from api_interfaces import (
 from leo_optima_single_model import LEOOptimaSingleModel
 from tenant_manager import TenantManager, Tenant
 
-app = FastAPI(title="LEO Optima Universal Proxy v2.0 (Multi-Tenant)")
+app = FastAPI(title="LEO Optima Community Edition v2.0")
 
 # Enable CORS for dashboard
 app.add_middleware(
@@ -33,8 +33,8 @@ app.add_middleware(
 tenant_manager = TenantManager()
 
 async def get_admin_tenant(tenant: Tenant = Depends(get_current_tenant)):
-    if tenant.tier != 'enterprise':
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # In community version, all valid keys can access analytics for now
+    # or you can implement a specific admin flag in the DB
     return tenant
 
 # API Key Security
@@ -140,7 +140,6 @@ async def get_analytics(tenant: Tenant = Depends(get_current_tenant)):
         'tenant': {
             'id': tenant.id,
             'name': tenant.name,
-            'tier': tenant.tier,
             'usage': {
                 'tokens_used': tenant.tokens_used,
                 'token_quota': tenant.token_quota,

@@ -27,8 +27,8 @@ export default function Login() {
               <Shield className="text-primary-foreground w-8 h-8" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold">LEO Optima Enterprise</h1>
-          <p className="text-muted-foreground text-sm">Enter your API key to access the dashboard</p>
+          <h1 className="text-2xl font-bold">LEO Optima Community</h1>
+          <p className="text-muted-foreground text-sm">Enter your local API key to access the dashboard</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

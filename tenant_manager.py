@@ -11,7 +11,6 @@ class Tenant:
     id: str
     name: str
     api_key_hash: str
-    tier: str  # 'free', 'pro', 'enterprise'
     token_quota: int
     tokens_used: int
     cost_limit: float
@@ -39,20 +38,19 @@ class TenantManager:
             cursor.execute("PRAGMA table_info(tenants)")
             columns = [column[1] for column in cursor.fetchall()]
             if 'api_key' in columns:
-                # Simple migration: rename api_key to api_key_hash
-                # In a real scenario, we'd hash existing keys if they weren't already
-                # But since this is a transition to production, we'll assume fresh start or manual migration
                 cursor.execute("ALTER TABLE tenants RENAME COLUMN api_key TO api_key_hash")
+            if 'tier' in columns:
+                # We don't need tier in open source version
+                pass
         else:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS tenants (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     api_key_hash TEXT UNIQUE NOT NULL,
-                    tier TEXT DEFAULT 'free',
-                    token_quota INTEGER DEFAULT 100000,
+                    token_quota INTEGER DEFAULT 1000000,
                     tokens_used INTEGER DEFAULT 0,
-                    cost_limit REAL DEFAULT 10.0,
+                    cost_limit REAL DEFAULT 100.0,
                     cost_used REAL DEFAULT 0.0,
                     is_active BOOLEAN DEFAULT 1,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -72,8 +70,8 @@ class TenantManager:
         """Hash the API key for secure storage"""
         return hashlib.sha256(api_key.encode()).hexdigest()
 
-    def create_tenant(self, name: str, api_key: Optional[str] = None, tier: str = "free", 
-                      token_quota: int = 100000, cost_limit: float = 10.0) -> Dict:
+    def create_tenant(self, name: str, api_key: Optional[str] = None, 
+                      token_quota: int = 1000000, cost_limit: float = 100.0) -> Dict:
         if not api_key:
             api_key = f"leo_{secrets.token_urlsafe(32)}"
         
@@ -84,9 +82,9 @@ class TenantManager:
         cursor = conn.cursor()
         try:
             cursor.execute('''
-                INSERT INTO tenants (id, name, api_key_hash, tier, token_quota, cost_limit)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (tenant_id, name, key_hash, tier, token_quota, cost_limit))
+                INSERT INTO tenants (id, name, api_key_hash, token_quota, cost_limit)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (tenant_id, name, key_hash, token_quota, cost_limit))
             conn.commit()
             return {"id": tenant_id, "api_key": api_key, "name": name}
         except sqlite3.IntegrityError:
@@ -132,7 +130,7 @@ class TenantManager:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, tier, tokens_used, token_quota, cost_used, cost_limit, is_active FROM tenants")
+        cursor.execute("SELECT id, name, tokens_used, token_quota, cost_used, cost_limit, is_active FROM tenants")
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
