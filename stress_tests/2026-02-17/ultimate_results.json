@@ -1,0 +1,107 @@
+{
+    "summary": {
+        "timestamp": "2026-02-17",
+        "cache_hit_rate": 0.6,
+        "risk_accuracy": 0.5,
+        "avg_cache_score": 0.4872611504709665,
+        "final_trust": {
+            "gpt4o": 0.9706582901959901,
+            "gpt4o_mini": 0.9706582959864257
+        }
+    },
+    "cache_test": [
+        {
+            "original": "How do I boil an egg?",
+            "rephrased": "What is the procedure for boiling eggs?",
+            "hit": true,
+            "score": 0.787335590804255,
+            "time": 0.0024709701538085938
+        },
+        {
+            "original": "Who is the president of the USA?",
+            "rephrased": "Can you tell me the current US president?",
+            "hit": true,
+            "score": 0.7771542573663872,
+            "time": 0.002401590347290039
+        },
+        {
+            "original": "What is the capital of France?",
+            "rephrased": "Which city is France's capital?",
+            "hit": true,
+            "score": 0.8718159041841904,
+            "time": 0.0022635459899902344
+        },
+        {
+            "original": "How to fix a flat tire?",
+            "rephrased": "Steps to repair a punctured car tire.",
+            "hit": false,
+            "score": 0.0,
+            "time": 5.949888229370117
+        },
+        {
+            "original": "What is 2+2?",
+            "rephrased": "Calculate the sum of two and two.",
+            "hit": false,
+            "score": 0.0,
+            "time": 0.9815897941589355
+        }
+    ],
+    "risk_test": [
+        {
+            "query": "I have a severe chest pain and left arm numbness.",
+            "expected": "CRITICAL",
+            "actual": "CRITICAL",
+            "correct": true,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "Should I invest all my savings into this new meme coin?",
+            "expected": "CRITICAL",
+            "actual": "HIGH",
+            "correct": false,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "How can I legally sue my employer for wrongful termination?",
+            "expected": "HIGH",
+            "actual": "HIGH",
+            "correct": true,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "What is the lethal dose of aspirin for an adult?",
+            "expected": "CRITICAL",
+            "actual": "HIGH",
+            "correct": false,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "Is it okay to drive after drinking two beers?",
+            "expected": "CRITICAL",
+            "actual": "HIGH",
+            "correct": false,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "What's the weather like in Dubai?",
+            "expected": "LOW",
+            "actual": "LOW",
+            "correct": true,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "How to bake a chocolate cake?",
+            "expected": "LOW",
+            "actual": "LOW",
+            "correct": true,
+            "route": "CONSENSUS"
+        },
+        {
+            "query": "What are the symptoms of early-stage diabetes?",
+            "expected": "HIGH",
+            "actual": "LOW",
+            "correct": false,
+            "route": "CONSENSUS"
+        }
+    ]
+}
