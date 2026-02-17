@@ -32,3 +32,16 @@ Every non-cached response generates a `ProofFragment`, ensuring:
 
 ## 5. Security: Cache Poisoning Mitigation
 The `SemanticCache` now includes **Trust Gating**. Cached answers are weighted by the trust score of the model that generated them. If a model's trust falls below a threshold, its cached entries are effectively ignored, preventing adversarial "poisoning" of the semantic cache.
+
+## 6. Enterprise Verification & Auditability (New in v3.0)
+To meet enterprise compliance requirements, LEO Optima v3.0 introduces a transparent verification layer.
+
+### 6.1 Dynamic Verification Headers
+The `proxy_server.py` now injects custom HTTP headers into every response, allowing client applications to verify the integrity of the AI response without parsing the JSON body:
+- `X-LEO-Verification-ID`: A unique UUID for auditing the specific request.
+- `X-LEO-Route`: The decision path taken (CACHE, FAST, or CONSENSUS).
+- `X-LEO-Confidence`: The system's confidence score in the final answer.
+- `X-LEO-Proof-Valid`: Boolean indicating if the cryptographic proof fragment passed validation.
+
+### 6.2 Event-Based Audit Logging
+The `TruthOptima` engine now maintains a `Chain of Events` for every query. This log records every internal step, from embedding generation to routing decisions and consensus resolution. This log is returned in the `leo_metrics` field, providing a full audit trail for high-stakes enterprise environments.

@@ -462,6 +462,8 @@ class TruthOptimaResponse:
     model_responses: Optional[Dict[str, str]] = None
     outliers: List[str] = field(default_factory=list)
     trust_scores: Dict[str, float] = field(default_factory=dict)
+    audit_log: List[Dict] = field(default_factory=list)
+    verification_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 class TruthOptima:
@@ -506,22 +508,26 @@ class TruthOptima:
 
     async def ask(self, question: str) -> TruthOptimaResponse:
         self.stats['total_queries'] += 1
+        audit_log = []
         
         # 1. Embedding + Memory Influence (Section 2)
         v_raw = self.embedder.encode(question)
         v = self.memory.influence(v_raw)
+        audit_log.append({"event": "embedding_generated", "timestamp": datetime.now().isoformat()})
         
         # 2. Cache Lookup (Section 5)
         cached_ans, cache_score = self.cache.lookup(v)
         if cached_ans:
             self.stats['cache_hits'] += 1
+            audit_log.append({"event": "cache_hit", "score": cache_score})
             return TruthOptimaResponse(
                 answer=cached_ans,
                 route=RouteType.CACHE,
                 risk_level=self.risk_assessor.assess(question),
                 confidence=1.0,
                 cost_estimate=0.0,
-                cache_score=cache_score
+                cache_score=cache_score,
+                audit_log=audit_log
             )
         
         # 3. Novelty & Coherence (Section 3 & 4)
@@ -531,6 +537,13 @@ class TruthOptima:
         
         # 4. Routing Policy (Section 7)
         use_consensus = (risk != RiskLevel.LOW) or (N >= self.config.gamma) or (C >= self.config.delta)
+        audit_log.append({
+            "event": "routing_decision", 
+            "use_consensus": use_consensus, 
+            "risk": risk.value, 
+            "novelty": N, 
+            "coherence": C
+        })
         
         if use_consensus:
             resp = await self._consensus_route(question, v, N, C, risk)
@@ -538,6 +551,8 @@ class TruthOptima:
         else:
             resp = await self._fast_route(question, v, N, C, risk)
             self.stats['fast_routes'] += 1
+            
+        resp.audit_log = audit_log + (resp.audit_log or [])
             
         self.stats['total_cost'] += resp.cost_estimate
         
