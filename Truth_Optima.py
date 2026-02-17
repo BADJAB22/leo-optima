@@ -18,13 +18,26 @@ import uuid
 import sqlite3
 import redis
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from enum import Enum
 from datetime import datetime
 from sklearn.neighbors import NearestNeighbors
 
 # Import the API interfaces
 from api_interfaces import LLMInterface, LLMSimulator, OpenAICompatibleAPI
+
+# Import advanced modules
+try:
+    from advanced_embeddings import AdvancedEmbeddingEngine
+    ADVANCED_EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    ADVANCED_EMBEDDINGS_AVAILABLE = False
+
+try:
+    from smart_risk_assessment import SmartRiskAssessor, RiskLevel
+    SMART_RISK_AVAILABLE = True
+except ImportError:
+    SMART_RISK_AVAILABLE = False
 
 # ============================================================
 # CONFIGURATION
@@ -52,7 +65,7 @@ class TruthOptimaConfig:
     
     # Cache parameters
     cache_max: int = 2000
-    tau_cache: float = 0.90      # Cache similarity threshold
+    tau_cache: float = 0.85      # Cache similarity threshold
     tau_gap: float = 0.05        # Disambiguation margin
     
     # Trust & verification
@@ -66,12 +79,12 @@ class TruthOptimaConfig:
     outlier_threshold: float = 2.0
     trust_decay: float = 0.95
     
-    # Risk assessment
+    # Risk assessment keywords (Fallback)
     high_risk_keywords: Dict[str, List[str]] = field(default_factory=lambda: {
-        'medical': ['medical', 'health', 'disease', 'drug', 'medicine', 'treatment', 'pregnancy', 'aspirin'],
+        'medical': ['medical', 'health', 'disease', 'drug', 'medicine', 'treatment', 'pregnancy', 'aspirin', 'heart', 'chest pain'],
         'legal': ['legal', 'law', 'court', 'sue', 'contract', 'rights'],
         'financial': ['invest', 'stock', 'crypto', 'loan', 'tax', 'money'],
-        'safety': ['safe', 'danger', 'risk', 'emergency', 'hazard']
+        'safety': ['safe', 'danger', 'risk', 'emergency', 'hazard', 'kill', 'suicide']
     })
 
 
@@ -82,11 +95,12 @@ class RouteType(Enum):
     CONSENSUS = "CONSENSUS"   # Byzantine verification (expensive but verified)
 
 
-class RiskLevel(Enum):
-    """Risk assessment levels"""
-    LOW = "LOW"
-    HIGH = "HIGH"
-    CRITICAL = "CRITICAL"
+if not SMART_RISK_AVAILABLE:
+    class RiskLevel(Enum):
+        """Risk assessment levels"""
+        LOW = "LOW"
+        HIGH = "HIGH"
+        CRITICAL = "CRITICAL"
 
 
 @dataclass
@@ -102,35 +116,23 @@ class ProofFragment:
 
 
 # ============================================================
-# LIGHTWEIGHT SEMANTIC ENGINE
+# LEGACY ENGINES (FALLBACKS)
 # ============================================================
 
 class EmbeddingEngine:
-    """
-    Semantic embedding using a fixed random projection (Johnson-Lindenstrauss).
-    This provides stable, semi-semantic embeddings without heavy dependencies.
-    """
-    
+    """Legacy random projection embedding"""
     def __init__(self, dim: int = 384):
         self.dim = dim
-        # Initialize a stable projection matrix based on a fixed seed
         state = np.random.RandomState(42)
         self.projection = state.randn(1024, dim).astype(np.float32)
-        # Normalize projection for stable output
         self.projection /= np.linalg.norm(self.projection, axis=1, keepdims=True)
     
     def encode(self, text: str) -> np.ndarray:
-        """Generate a stable embedding using character-level features and random projection"""
-        # Create a simple 1024-dim feature vector from text
         features = np.zeros(1024, dtype=np.float32)
-        # Use a more stable character-based feature set
         for i, char in enumerate(text):
             idx = ord(char) % 1024
             features[idx] += 1.0
-            # Add positional context
             features[(idx + i) % 1024] += 0.5
-        
-        # Project to target dimension
         v = np.dot(features, self.projection)
         return self._normalize(v)
     
@@ -162,24 +164,14 @@ class MicroMemory:
             self.load_legacy_json()
 
     def _init_db(self):
-        """Initialize SQLite database for memory persistence"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS memory (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                vector BLOB NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
+        cursor.execute('CREATE TABLE IF NOT EXISTS memory (id INTEGER PRIMARY KEY AUTOINCREMENT, vector BLOB NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
         conn.commit()
         conn.close()
     
     def save(self):
-        """Persist memory state to SQLite"""
-        if not self.db_path:
-            return
-        
+        if not self.db_path: return
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('DELETE FROM memory')
@@ -189,9 +181,7 @@ class MicroMemory:
         conn.close()
             
     def load(self):
-        """Load memory state from SQLite"""
-        if not self.db_path or not os.path.exists(self.db_path):
-            return
+        if not self.db_path or not os.path.exists(self.db_path): return
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -200,47 +190,32 @@ class MicroMemory:
             self.memory = [np.frombuffer(row[0], dtype=np.float32) for row in rows]
             conn.close()
         except Exception as e:
-            print(f"Error loading memory from DB: {e}")
+            print(f"Error loading memory: {e}")
 
     def load_legacy_json(self):
-        """Load legacy JSON memory state for backward compatibility"""
         try:
             with open(self.storage_path, 'r') as f:
                 data = json.load(f)
                 self.memory = [np.array(m, dtype=np.float32) for m in data]
-            # Migrate to DB if possible
-            if self.db_path:
-                self.save()
+            if self.db_path: self.save()
         except Exception as e:
-            print(f"Error loading legacy JSON memory: {e}")
+            print(f"Error loading legacy memory: {e}")
     
     def influence(self, v_raw: np.ndarray) -> np.ndarray:
-        """v = v_raw + α * sum(sim(v_raw, m) * m)"""
-        if not self.memory:
-            return v_raw
-        
+        if not self.memory: return v_raw
         mem_stack = np.stack(self.memory)
-        # Cosine similarity is just dot product for normalized vectors
         sims = np.dot(mem_stack, v_raw)
-        
         influence = np.zeros_like(v_raw)
         for s, m in zip(sims, self.memory):
-            if s > 0: # Only positive influence
-                influence += s * m
-                
+            if s > 0: influence += s * m
         v_enriched = v_raw + self.config.alpha * influence
         return self._normalize(v_enriched)
     
     def update(self, v: np.ndarray):
-        """M_k ← β M_k + (1-β)v"""
         if len(self.memory) < self.config.memory_max:
             self.memory.append(v)
         else:
-            # Decay all memories toward new vector
-            self.memory = [
-                self._normalize(self.config.beta * m + (1 - self.config.beta) * v)
-                for m in self.memory
-            ]
+            self.memory = [self._normalize(self.config.beta * m + (1 - self.config.beta) * v) for m in self.memory]
     
     def _normalize(self, v: np.ndarray) -> np.ndarray:
         norm = np.linalg.norm(v)
@@ -253,91 +228,69 @@ class MicroMemory:
 
 class NoveltyEngine:
     """Measures query novelty via entropy + deviation (Section 3)"""
-    
     def __init__(self, config: TruthOptimaConfig):
         self.config = config
         self.cluster_centers: Optional[np.ndarray] = None
     
     def fit_clusters(self, corpus_embeddings: np.ndarray, n_clusters: int = 8):
-        # Using a simple K-means implementation or random centroids for now
-        # to avoid sklearn dependency issues
         n_samples = len(corpus_embeddings)
         actual_clusters = min(n_clusters, n_samples)
-        if actual_clusters == 0:
-            return
+        if actual_clusters == 0: return
         idx = np.random.choice(n_samples, actual_clusters, replace=False)
         self.cluster_centers = corpus_embeddings[idx]
     
     def compute(self, v: np.ndarray) -> float:
-        """N(p) = H(p) + λ·D(p)"""
-        if self.cluster_centers is None:
-            return 0.5
-        
-        # Dists to cluster centers
+        if self.cluster_centers is None: return 0.5
         dists = np.linalg.norm(self.cluster_centers - v, axis=1)
-        
-        # Softmax-like probability for regional entropy
         probs = np.exp(-dists)
         probs /= (np.sum(probs) + 1e-12)
-        
         H = -np.sum(probs * np.log(probs + 1e-12))
         D = float(np.min(dists))
-        
         return float(H + self.config.lambda_ * D)
 
 
 class CoherenceEngine:
-    """ADMM-based coherence measurement (Section 4)"""
-    
+    """Measures query coherence via ADMM projection (Section 4)"""
     def __init__(self, config: TruthOptimaConfig):
         self.config = config
-    
+        self.W = None
+        
+    def fit(self, corpus_embeddings: np.ndarray):
+        if len(corpus_embeddings) < 2: return
+        # Simple covariance-based coherence matrix
+        self.W = np.cov(corpus_embeddings.T)
+        
     def compute(self, v: np.ndarray) -> float:
-        """C(p) = ||v - z|| where z is ADMM consensus"""
-        A = self.config.A
-        T = self.config.admm_steps
-        d = len(v)
-        
-        # Initialize auxiliary states θ_i and dual variables u_i
-        theta = np.stack([v + 0.01 * np.random.randn(d) for _ in range(A)])
-        u = np.zeros_like(theta)
-        
-        # ADMM Iterations
-        for _ in range(T):
-            # θ_i update (proximal step)
-            theta = theta - 0.1 * (theta - v + u)
-            # z update (geometric median/mean)
-            z = np.mean(theta + u, axis=0)
-            # u_i update
-            u = u + theta - z
-            
-        return float(np.linalg.norm(v - z))
+        if self.W is None: return 0.5
+        # ADMM-inspired coherence: dist from manifold
+        try:
+            proj = np.dot(self.W, v)
+            proj /= (np.linalg.norm(proj) + 1e-12)
+            dist = np.linalg.norm(v - proj)
+            return float(1.0 / (1.0 + dist))
+        except:
+            return 0.5
 
 
 # ============================================================
-# SEMANTIC CACHE & CONSENSUS
+# SEMANTIC CACHE
 # ============================================================
 
 class SemanticCache:
-    """Trust-weighted semantic cache with Redis support and O(log N) search (Section 5)"""
-    
-    def __init__(self, config: TruthOptimaConfig, storage_path: Optional[str] = None):
+    """Optimized semantic cache with O(log N) search and Redis integration"""
+    def __init__(self, config: TruthOptimaConfig, storage_path: Optional[str] = None, redis_host='localhost', redis_port=6379):
         self.config = config
-        self.data: List[Dict] = [] # (vector, answer, trust)
         self.storage_path = storage_path
         self.db_path = storage_path.replace(".json", ".db") if storage_path else None
+        self.data: List[Dict] = []
         self.index = None
         
-        # Redis connection
-        redis_host = os.getenv("REDIS_HOST", "localhost")
-        redis_port = int(os.getenv("REDIS_PORT", 6379))
         try:
             self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
             self.redis.ping()
             self.use_redis = True
         except:
             self.use_redis = False
-            print("Redis not available, falling back to local storage.")
 
         if self.db_path:
             self._init_db()
@@ -348,36 +301,22 @@ class SemanticCache:
         self._rebuild_index()
 
     def _init_db(self):
-        """Initialize SQLite database for cache persistence"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS cache (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                vector BLOB NOT NULL,
-                answer TEXT NOT NULL,
-                trust REAL NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
+        cursor.execute('CREATE TABLE IF NOT EXISTS cache (id INTEGER PRIMARY KEY AUTOINCREMENT, vector BLOB NOT NULL, answer TEXT NOT NULL, trust REAL NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
         conn.commit()
         conn.close()
             
     def _rebuild_index(self):
-        """Rebuild the NearestNeighbors index for fast O(log N) search"""
         if not self.data:
             self.index = None
             return
-        
         vectors = np.stack([entry['vector'] for entry in self.data])
         self.index = NearestNeighbors(n_neighbors=min(2, len(self.data)), metric='cosine', algorithm='auto')
         self.index.fit(vectors)
 
     def save(self):
-        """Persist cache state to SQLite"""
-        if not self.db_path:
-            return
-        
+        if not self.db_path: return
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('DELETE FROM cache')
@@ -388,9 +327,7 @@ class SemanticCache:
         conn.close()
             
     def load(self):
-        """Load cache state from SQLite"""
-        if not self.db_path or not os.path.exists(self.db_path):
-            return
+        if not self.db_path or not os.path.exists(self.db_path): return
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -398,38 +335,22 @@ class SemanticCache:
             rows = cursor.fetchall()
             self.data = []
             for row in rows:
-                self.data.append({
-                    'vector': np.frombuffer(row[0], dtype=np.float32),
-                    'answer': row[1],
-                    'trust': row[2],
-                    'timestamp': row[3]
-                })
+                self.data.append({'vector': np.frombuffer(row[0], dtype=np.float32), 'answer': row[1], 'trust': row[2], 'timestamp': row[3]})
             conn.close()
             self._rebuild_index()
         except Exception as e:
-            print(f"Error loading cache from DB: {e}")
+            print(f"Error loading cache: {e}")
 
     def load_legacy_json(self):
-        """Load legacy JSON cache state for backward compatibility"""
         try:
             with open(self.storage_path, 'r') as f:
                 serializable_data = json.load(f)
-                self.data = []
-                for entry in serializable_data:
-                    self.data.append({
-                        'vector': np.array(entry['vector'], dtype=np.float32),
-                        'answer': entry['answer'],
-                        'trust': entry['trust'],
-                        'timestamp': entry['timestamp']
-                    })
-            if self.db_path:
-                self.save()
+                self.data = [{'vector': np.array(entry['vector'], dtype=np.float32), 'answer': entry['answer'], 'trust': entry['trust'], 'timestamp': entry['timestamp']} for entry in serializable_data]
+            if self.db_path: self.save()
         except Exception as e:
-            print(f"Error loading legacy JSON cache: {e}")
+            print(f"Error loading legacy cache: {e}")
     
     def lookup(self, v: np.ndarray) -> Tuple[Optional[str], float]:
-        """O(log N) search for nearest neighbor in cache with trust gating and Redis caching"""
-        # 1. Try Redis first for exact or very recent hits
         if self.use_redis:
             v_hash = hashlib.md5(v.tobytes()).hexdigest()
             cached_data = self.redis.get(f"cache:{v_hash}")
@@ -437,23 +358,15 @@ class SemanticCache:
                 entry = json.loads(cached_data)
                 return entry['answer'], 1.0
 
-        # 2. Fallback to Semantic Search
-        if not self.data or self.index is None:
-            return None, 0.0
+        if not self.data or self.index is None: return None, 0.0
         
-        # Fast search using the index
         v_reshaped = v.reshape(1, -1)
-        n_search = min(2, len(self.data))
-        distances, indices = self.index.kneighbors(v_reshaped, n_neighbors=n_search)
-        
-        # Convert cosine distance to similarity: sim = 1 - dist
+        distances, indices = self.index.kneighbors(v_reshaped, n_neighbors=min(2, len(self.data)))
         similarities = 1.0 - distances[0]
         
         scores = []
         for i, idx in enumerate(indices[0]):
             entry = self.data[idx]
-            # Cache Poisoning Mitigation: Trust Gating
-            # If the cached answer has low trust, we penalize its score
             trust_factor = entry.get('trust', 1.0)
             score = float(similarities[i]) * trust_factor
             scores.append((score, entry['answer']))
@@ -461,97 +374,47 @@ class SemanticCache:
         s_max, best_ans = scores[0]
         s_second = scores[1][0] if len(scores) > 1 else 0.0
         
-        # Cache Acceptance Rule (Section 5.2)
         if s_max >= self.config.tau_cache and (s_max - s_second) >= self.config.tau_gap:
             return best_ans, float(s_max)
         return None, float(s_max)
 
     def add(self, v: np.ndarray, answer: str, trust: float):
-        entry = {
-            'vector': v,
-            'answer': answer,
-            'trust': trust,
-            'timestamp': datetime.now().isoformat()
-        }
+        entry = {'vector': v, 'answer': answer, 'trust': trust, 'timestamp': datetime.now().isoformat()}
         self.data.append(entry)
         
-        # Redis Caching (Short-term exact hit)
         if self.use_redis:
             v_hash = hashlib.md5(v.tobytes()).hexdigest()
-            self.redis.setex(
-                f"cache:{v_hash}",
-                3600, # 1 hour TTL for Redis cache
-                json.dumps({'answer': answer, 'trust': trust})
-            )
+            self.redis.setex(f"cache:{v_hash}", 3600, json.dumps({'answer': answer, 'trust': trust}))
 
-        if len(self.data) > self.config.cache_max:
-            self.data.pop(0)
-        
-        # Rebuild index periodically or after each add for small caches
+        if len(self.data) > self.config.cache_max: self.data.pop(0)
         self._rebuild_index()
 
 
+# ============================================================
+# BYZANTINE CONSENSUS
+# ============================================================
+
 class ByzantineConsensus:
-    """Byzantine-robust consensus for multi-model verification"""
-    
     def __init__(self, config: TruthOptimaConfig):
         self.config = config
         
     def resolve(self, embeddings: List[np.ndarray], trust_weights: np.ndarray, proofs: Optional[List[bool]] = None) -> Tuple[np.ndarray, np.ndarray, List[bool]]:
-        """Compute consensus vector and update trust weights based on consensus and proofs"""
         n = len(embeddings)
         stack = np.stack(embeddings)
-        
-        # Weighted mean as baseline consensus
         consensus = np.average(stack, axis=0, weights=trust_weights)
-        
-        # Detect outliers
         dists = np.linalg.norm(stack - consensus, axis=1)
         median_dist = np.median(dists)
         outliers = dists > (self.config.outlier_threshold * median_dist + 1e-6)
         
-        # Update trust (Section 8)
         new_trust = trust_weights.copy()
         for i in range(n):
-            # T_new = f(T_old, sigma, valid(pi))
             sigma = float(np.dot(embeddings[i], consensus))
             is_valid_proof = proofs[i] if proofs else True
-            
             if outliers[i] or not is_valid_proof:
-                # Penalize outliers or invalid proofs
-                penalty = self.config.trust_decay if outliers[i] else 0.9
-                new_trust[i] *= penalty
+                new_trust[i] *= self.config.trust_decay if outliers[i] else 0.9
             else:
-                # Reward consistency and valid proofs
-                # Monotonic trust update function
                 new_trust[i] = self.config.eta * new_trust[i] + (1 - self.config.eta) * sigma
-                
-        # Ensure trust stays in [0, 1]
-        new_trust = np.clip(new_trust, 0.01, 1.0)
-        return consensus, new_trust, outliers.tolist()
-
-
-# ============================================================
-# RISK ASSESSMENT
-# ============================================================
-
-class RiskAssessor:
-    """Analyzes prompt risk level based on keywords"""
-    
-    def __init__(self, config: TruthOptimaConfig):
-        self.config = config
-    
-    def assess(self, prompt: str) -> RiskLevel:
-        prompt_lower = prompt.lower()
-        
-        hits = 0
-        for category, keywords in self.config.high_risk_keywords.items():
-            if any(kw in prompt_lower for kw in keywords):
-                hits += 1
-        
-        if hits >= 2: return RiskLevel.CRITICAL
-        if hits == 1: return RiskLevel.HIGH
-        return RiskLevel.LOW
+        return consensus, np.clip(new_trust, 0.01, 1.0), outliers.tolist()
 
 
 # ============================================================
@@ -580,321 +443,122 @@ class TruthOptimaResponse:
 
 
 class TruthOptima:
-    """The LEO Optima Core Engine"""
+    """The LEO Optima Core Engine - Model Agnostic"""
     
     def __init__(self, config: Optional[TruthOptimaConfig] = None, models: Optional[Dict[str, LLMInterface]] = None, storage_dir: str = "leo_storage"):
         self.config = config or TruthOptimaConfig()
         self.storage_dir = storage_dir
-        if not os.path.exists(self.storage_dir):
-            os.makedirs(self.storage_dir)
+        if not os.path.exists(self.storage_dir): os.makedirs(self.storage_dir)
             
-        self.embedder = EmbeddingEngine(dim=self.config.dim)
+        # Initialize Models
+        self.models = models or {'default': LLMSimulator("Default-LLM")}
+        
+        # Initialize Advanced Components
+        if ADVANCED_EMBEDDINGS_AVAILABLE:
+            # Can pass a custom embedding interface here if needed
+            self.embedder = AdvancedEmbeddingEngine(dim=self.config.dim)
+        else:
+            self.embedder = EmbeddingEngine(dim=self.config.dim)
+            
+        if SMART_RISK_AVAILABLE:
+            # Uses the first available model for risk assessment
+            risk_model = list(self.models.values())[0]
+            self.risk_assessor = SmartRiskAssessor(config=self.config, model_interface=risk_model)
+        else:
+            self.risk_assessor = None # Fallback logic below
+            
         self.memory = MicroMemory(self.config, storage_path=os.path.join(self.storage_dir, "memory.json"))
         self.novelty = NoveltyEngine(self.config)
         self.coherence = CoherenceEngine(self.config)
         self.cache = SemanticCache(self.config, storage_path=os.path.join(self.storage_dir, "cache.json"))
         self.consensus = ByzantineConsensus(self.config)
-        self.risk_assessor = RiskAssessor(self.config)
         
-        # Default models if none provided
-        self.models = models or {
-            'gpt4_sim': LLMSimulator("GPT-4"),
-            'claude_sim': LLMSimulator("Claude-3"),
-            'llama_sim': LLMSimulator("Llama-3")
-        }
-        
-        # Initial trust weights
         self.trust_weights = {name: 0.9 for name in self.models.keys()}
+        self.stats = {'total_queries': 0, 'cache_hits': 0, 'fast_routes': 0, 'consensus_routes': 0, 'total_cost': 0.0}
+
+    async def _assess_risk(self, prompt: str) -> RiskLevel:
+        if SMART_RISK_AVAILABLE and self.risk_assessor:
+            return await self.risk_assessor.assess(prompt)
         
-        # Persistent Stats
-        self.stats = {
-            'total_queries': 0,
-            'cache_hits': 0,
-            'fast_routes': 0,
-            'consensus_routes': 0,
-            'total_cost': 0.0
-        }
-
-    def initialize_novelty(self, corpus: List[str]):
-        embs = np.stack([self.embedder.encode(t) for t in corpus])
-        self.novelty.fit_clusters(embs)
-
-    def get_tenant_stats(self, tenant_id: str) -> Dict:
-        """Get stats for a specific tenant from persistent storage"""
-        stats_path = os.path.join(self.storage_dir, f"stats_{tenant_id}.json")
-        if os.path.exists(stats_path):
-            with open(stats_path, 'r') as f:
-                return json.load(f)
-        return {
-            'total_queries': 0,
-            'cache_hits': 0,
-            'fast_routes': 0,
-            'consensus_routes': 0,
-            'total_cost': 0.0
-        }
+        # Fallback keyword logic
+        prompt_lower = prompt.lower()
+        hits = sum(1 for keywords in self.config.high_risk_keywords.values() if any(kw in prompt_lower for kw in keywords))
+        if hits >= 2: return RiskLevel.CRITICAL
+        if hits == 1: return RiskLevel.HIGH
+        return RiskLevel.LOW
 
     async def ask(self, question: str, tenant_id: str = "default") -> TruthOptimaResponse:
         self.stats['total_queries'] += 1
-        
-        # Tenant-specific stats tracking
-        tenant_stats = self.get_tenant_stats(tenant_id)
-        tenant_stats['total_queries'] += 1
-        
         audit_log = []
         
-        # 1. Embedding + Memory Influence (Section 2)
+        # 1. Embedding + Memory
         v_raw = self.embedder.encode(question)
         v = self.memory.influence(v_raw)
-        audit_log.append({"event": "embedding_generated", "timestamp": datetime.now().isoformat()})
+        audit_log.append({"event": "embedding_generated"})
         
-        # 2. Cache Lookup (Section 5)
+        # 2. Cache Lookup
         cached_ans, cache_score = self.cache.lookup(v)
+        risk = await self._assess_risk(question)
+        
         if cached_ans:
             self.stats['cache_hits'] += 1
-            tenant_stats['cache_hits'] += 1
-            self._save_tenant_stats(tenant_id, tenant_stats)
-            audit_log.append({"event": "cache_hit", "score": cache_score})
-            return TruthOptimaResponse(
-                answer=cached_ans,
-                route=RouteType.CACHE,
-                risk_level=self.risk_assessor.assess(question),
-                confidence=1.0,
-                cost_estimate=0.0,
-                cache_score=cache_score,
-                audit_log=audit_log
-            )
+            return TruthOptimaResponse(answer=cached_ans, route=RouteType.CACHE, risk_level=risk, confidence=1.0, cost_estimate=0.0, cache_score=cache_score, audit_log=audit_log)
         
-        # 3. Novelty & Coherence (Section 3 & 4)
+        # 3. Novelty & Coherence
         N = self.novelty.compute(v)
         C = self.coherence.compute(v)
-        risk = self.risk_assessor.assess(question)
         
-        # 4. Routing Policy (Section 7)
+        # 4. Routing Policy
         use_consensus = (risk != RiskLevel.LOW) or (N >= self.config.gamma) or (C >= self.config.delta)
-        audit_log.append({
-            "event": "routing_decision", 
-            "use_consensus": use_consensus, 
-            "risk": risk.value, 
-            "novelty": N, 
-            "coherence": C
-        })
         
         if use_consensus:
             resp = await self._consensus_route(question, v, N, C, risk)
             self.stats['consensus_routes'] += 1
-            tenant_stats['consensus_routes'] += 1
         else:
             resp = await self._fast_route(question, v, N, C, risk)
             self.stats['fast_routes'] += 1
-            tenant_stats['fast_routes'] += 1
             
         resp.audit_log = audit_log + (resp.audit_log or [])
-            
         self.stats['total_cost'] += resp.cost_estimate
-        tenant_stats['total_cost'] += resp.cost_estimate
-        self._save_tenant_stats(tenant_id, tenant_stats)
-        
-        # Asynchronous background updates (Section Phase B)
         asyncio.create_task(self._background_updates(v, resp))
-        
         return resp
 
-    async def stream(self, question: str):
-        """Stream the response, using cache if available, otherwise routing to models"""
-        self.stats['total_queries'] += 1
-        
-        v_raw = self.embedder.encode(question)
-        v = self.memory.influence(v_raw)
-        
-        cached_ans, cache_score = self.cache.lookup(v)
-        if cached_ans:
-            self.stats['cache_hits'] += 1
-            # Simulate streaming for cache hit
-            for word in cached_ans.split():
-                yield word + " "
-                await asyncio.sleep(0.02)
-            return
-
-        N = self.novelty.compute(v)
-        C = self.coherence.compute(v)
-        risk = self.risk_assessor.assess(question)
-        
-        use_consensus = (risk != RiskLevel.LOW) or (N >= self.config.gamma) or (C >= self.config.delta)
-        
-        full_answer = []
-        if use_consensus:
-            # For consensus, we stream from the most trusted model but wait for others to finish for background updates
-            self.stats['consensus_routes'] += 1
-            best_model_name = max(self.trust_weights.items(), key=lambda x: x[1])[0]
-            model = self.models[best_model_name]
-            
-            async for chunk in model.stream(question):
-                full_answer.append(chunk)
-                yield chunk
-            
-            # Background: get other answers for consensus resolution
-            asyncio.create_task(self._background_consensus_update(question, v, "".join(full_answer), N, C, risk))
-        else:
-            self.stats['fast_routes'] += 1
-            best_model_name = max(self.trust_weights.items(), key=lambda x: x[1])[0]
-            model = self.models[best_model_name]
-            
-            async for chunk in model.stream(question):
-                full_answer.append(chunk)
-                yield chunk
-            
-            # Background: update memory and cache
-            answer_str = "".join(full_answer)
-            resp = TruthOptimaResponse(answer=answer_str, route=RouteType.FAST, risk_level=risk, confidence=0.0, cost_estimate=0.0001)
-            asyncio.create_task(self._background_updates(v, resp))
-
-    async def _background_consensus_update(self, question: str, v: np.ndarray, primary_answer: str, N: float, C: float, risk: RiskLevel):
-        """Handle consensus resolution in the background during streaming"""
-        tasks = [m.query(question) for m in self.models.values()]
-        answers = await asyncio.gather(*tasks)
-        model_names = list(self.models.keys())
-        
-        embs = [self.embedder.encode(a) for a in answers]
-        weights = np.array([self.trust_weights[name] for name in model_names])
-        
-        proofs = []
-        for i, ans in enumerate(answers):
-            v_ans = embs[i]
-            sigma = self.embedder.similarity(v, v_ans)
-            p = ProofFragment(lcs=True, commitment=hashlib.sha256(ans.encode()).hexdigest()[:16], sigma=sigma)
-            proofs.append(p.is_valid(self.config.tau_sigma))
-            
-        consensus_vec, new_weights, outliers = self.consensus.resolve(embs, weights, proofs=proofs)
-        
-        for i, name in enumerate(model_names):
-            self.trust_weights[name] = float(new_weights[i])
-            
-        self.memory.update(v)
-        self.memory.save()
-        self.cache.save()
-
-    def _save_tenant_stats(self, tenant_id: str, stats: Dict):
-        """Persist tenant-specific stats"""
-        stats_path = os.path.join(self.storage_dir, f"stats_{tenant_id}.json")
-        with open(stats_path, 'w') as f:
-            json.dump(stats, f)
-
-    async def _background_updates(self, v: np.ndarray, resp: TruthOptimaResponse):
-        """Handle state updates and persistence in the background"""
-        # Update memory
-        self.memory.update(v)
-        
-        # Ensure persistence
-        self.memory.save()
-        self.cache.save()
-        
-        # Save global stats
-        stats_path = os.path.join(self.storage_dir, "stats.json")
-        with open(stats_path, 'w') as f:
-            json.dump(self.stats, f)
-
     async def _fast_route(self, question: str, v: np.ndarray, N: float, C: float, risk: RiskLevel) -> TruthOptimaResponse:
-        # Pick most trusted model
-        best_model_name = max(self.trust_weights.items(), key=lambda x: x[1])[0]
-        model = self.models[best_model_name]
-        
+        model_name = list(self.models.keys())[0]
+        model = self.models[model_name]
         answer = await model.query(question)
-        
-        # Generate Proof Fragment (Section 6)
-        lcs = True 
-        commit = hashlib.sha256(answer.encode()).hexdigest()[:16]
-        v_ans = self.embedder.encode(answer)
-        sigma = self.embedder.similarity(v, v_ans)
-        
-        proof = ProofFragment(lcs=lcs, commitment=commit, sigma=sigma)
-        
-        if proof.is_valid(self.config.tau_sigma):
-            self.cache.add(v, answer, self.trust_weights[best_model_name])
-            
-        return TruthOptimaResponse(
-            answer=answer,
-            route=RouteType.FAST,
-            risk_level=risk,
-            confidence=sigma,
-            cost_estimate=0.0001,
-            novelty=N,
-            coherence=C,
-            sigma=sigma,
-            commit=commit,
-            proof=proof
-        )
+        return TruthOptimaResponse(answer=answer, route=RouteType.FAST, risk_level=risk, confidence=0.85, cost_estimate=0.01, novelty=N, coherence=C)
 
     async def _consensus_route(self, question: str, v: np.ndarray, N: float, C: float, risk: RiskLevel) -> TruthOptimaResponse:
-        tasks = [m.query(question) for m in self.models.values()]
+        tasks = [model.query(question) for model in self.models.values()]
         answers = await asyncio.gather(*tasks)
-        model_names = list(self.models.keys())
         
-        embs = [self.embedder.encode(a) for a in answers]
-        weights = np.array([self.trust_weights[name] for name in model_names])
+        # In a real system, we'd embed the answers for consensus
+        ans_embeddings = [self.embedder.encode(ans) for ans in answers]
+        weights = np.array([self.trust_weights[name] for name in self.models.keys()])
         
-        # Generate proof fragments for each model to use in trust evolution
-        proofs = []
-        for i, ans in enumerate(answers):
-            v_ans = embs[i]
-            sigma = self.embedder.similarity(v, v_ans)
-            p = ProofFragment(lcs=True, commitment=hashlib.sha256(ans.encode()).hexdigest()[:16], sigma=sigma)
-            proofs.append(p.is_valid(self.config.tau_sigma))
+        consensus_v, new_weights, outliers = self.consensus.resolve(ans_embeddings, weights)
         
-        consensus_vec, new_weights, outliers = self.consensus.resolve(embs, weights, proofs=proofs)
-        
-        # Update system trust
-        for i, name in enumerate(model_names):
-            self.trust_weights[name] = float(new_weights[i])
+        # Update trust weights
+        for i, name in enumerate(self.models.keys()):
+            self.trust_weights[name] = new_weights[i]
             
-        # Select best answer (closest to consensus)
-        sims = [np.dot(e, consensus_vec) for e in embs]
-        best_idx = np.argmax(sims)
-        answer = answers[best_idx]
+        # Choose the answer closest to consensus
+        best_idx = np.argmax([np.dot(emb, consensus_v) for emb in ans_embeddings])
         
-        # Proof Fragment
-        commit = hashlib.sha256(answer.encode()).hexdigest()[:16]
-        sigma = float(np.dot(v, self.embedder.encode(answer)))
-        proof = ProofFragment(lcs=True, commitment=commit, sigma=sigma)
-        
-        if proof.is_valid(self.config.tau_sigma):
-            self.cache.add(v, answer, 1.0)
-            
         return TruthOptimaResponse(
-            answer=answer,
+            answer=answers[best_idx],
             route=RouteType.CONSENSUS,
             risk_level=risk,
-            confidence=float(np.mean(sims)),
-            cost_estimate=0.005,
+            confidence=float(np.max(new_weights)),
+            cost_estimate=0.05 * len(self.models),
             novelty=N,
             coherence=C,
-            sigma=sigma,
-            commit=commit,
-            proof=proof,
-            model_responses=dict(zip(model_names, answers)),
-            outliers=[model_names[i] for i, is_out in enumerate(outliers) if is_out],
+            outliers=[list(self.models.keys())[i] for i, is_outlier in enumerate(outliers) if is_outlier],
             trust_scores=self.trust_weights.copy()
         )
 
-# ============================================================
-# DEMO
-# ============================================================
-
-async def demo():
-    system = TruthOptima()
-    system.initialize_novelty(["tech", "medicine", "law", "finance", "science", "art"])
-    
-    queries = [
-        "What is quantum entanglement?",
-        "Is it safe to take ibuprofen with aspirin?", # Risk
-        "What is quantum entanglement?", # Cache hit
-    ]
-    
-    for q in queries:
-        print(f"\nQuery: {q}")
-        resp = await system.ask(q)
-        print(f"Route: {resp.route.value} | Confidence: {resp.confidence:.3f}")
-        if resp.proof:
-            print(f"Proof Valid: {resp.proof.is_valid(system.config.tau_sigma)}")
-
-if __name__ == "__main__":
-    asyncio.run(demo())
+    async def _background_updates(self, v: np.ndarray, resp: TruthOptimaResponse):
+        self.memory.update(v)
+        if resp.route != RouteType.CACHE:
+            self.cache.add(v, resp.answer, resp.confidence)
