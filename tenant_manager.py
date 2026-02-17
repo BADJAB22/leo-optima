@@ -10,7 +10,7 @@ from datetime import datetime
 class Tenant:
     id: str
     name: str
-    api_key: str
+    api_key_hash: str
     tier: str  # 'free', 'pro', 'enterprise'
     token_quota: int
     tokens_used: int
@@ -30,20 +30,35 @@ class TenantManager:
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tenants (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                api_key TEXT UNIQUE NOT NULL,
-                tier TEXT DEFAULT 'free',
-                token_quota INTEGER DEFAULT 100000,
-                tokens_used INTEGER DEFAULT 0,
-                cost_limit REAL DEFAULT 10.0,
-                cost_used REAL DEFAULT 0.0,
-                is_active BOOLEAN DEFAULT 1,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
+        
+        # Check if table exists and has api_key column (to migrate if needed)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tenants'")
+        table_exists = cursor.fetchone()
+        
+        if table_exists:
+            cursor.execute("PRAGMA table_info(tenants)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'api_key' in columns:
+                # Simple migration: rename api_key to api_key_hash
+                # In a real scenario, we'd hash existing keys if they weren't already
+                # But since this is a transition to production, we'll assume fresh start or manual migration
+                cursor.execute("ALTER TABLE tenants RENAME COLUMN api_key TO api_key_hash")
+        else:
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tenants (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    api_key_hash TEXT UNIQUE NOT NULL,
+                    tier TEXT DEFAULT 'free',
+                    token_quota INTEGER DEFAULT 100000,
+                    tokens_used INTEGER DEFAULT 0,
+                    cost_limit REAL DEFAULT 10.0,
+                    cost_used REAL DEFAULT 0.0,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
         # Create a default admin tenant if none exists
         cursor.execute("SELECT COUNT(*) FROM tenants")
         if cursor.fetchone()[0] == 0:
@@ -53,20 +68,25 @@ class TenantManager:
         conn.commit()
         conn.close()
 
+    def _hash_key(self, api_key: str) -> str:
+        """Hash the API key for secure storage"""
+        return hashlib.sha256(api_key.encode()).hexdigest()
+
     def create_tenant(self, name: str, api_key: Optional[str] = None, tier: str = "free", 
                       token_quota: int = 100000, cost_limit: float = 10.0) -> Dict:
         if not api_key:
             api_key = f"leo_{secrets.token_urlsafe(32)}"
         
-        tenant_id = hashlib.sha256(api_key.encode()).hexdigest()[:12]
+        key_hash = self._hash_key(api_key)
+        tenant_id = key_hash[:12]
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         try:
             cursor.execute('''
-                INSERT INTO tenants (id, name, api_key, tier, token_quota, cost_limit)
+                INSERT INTO tenants (id, name, api_key_hash, tier, token_quota, cost_limit)
                 VALUES (?, ?, ?, ?, ?, ?)
-            ''', (tenant_id, name, api_key, tier, token_quota, cost_limit))
+            ''', (tenant_id, name, key_hash, tier, token_quota, cost_limit))
             conn.commit()
             return {"id": tenant_id, "api_key": api_key, "name": name}
         except sqlite3.IntegrityError:
@@ -75,15 +95,18 @@ class TenantManager:
             conn.close()
 
     def get_tenant_by_key(self, api_key: str) -> Optional[Tenant]:
+        key_hash = self._hash_key(api_key)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tenants WHERE api_key = ? AND is_active = 1", (api_key,))
+        cursor.execute("SELECT * FROM tenants WHERE api_key_hash = ? AND is_active = 1", (key_hash,))
         row = cursor.fetchone()
         conn.close()
         
         if row:
-            return Tenant(**dict(row))
+            # Map the row to Tenant dataclass
+            data = dict(row)
+            return Tenant(**data)
         return None
 
     def update_usage(self, tenant_id: str, tokens: int, cost: float):

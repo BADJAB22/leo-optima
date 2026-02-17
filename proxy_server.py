@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Security, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security.api_key import APIKeyHeader, APIKey
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import json
 import os
@@ -14,9 +15,19 @@ from api_interfaces import (
     PromptOptimizer,
     ConfidenceScorer,
 )
+from leo_optima_single_model import LEOOptimaSingleModel
 from tenant_manager import TenantManager, Tenant
 
 app = FastAPI(title="LEO Optima Universal Proxy v2.0 (Multi-Tenant)")
+
+# Enable CORS for dashboard
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify the actual dashboard URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Multi-Tenant Identity Manager
 tenant_manager = TenantManager()
@@ -266,7 +277,11 @@ async def proxy_chat_completions(request: Request, tenant: Tenant = Depends(get_
         "X-LEO-Route": response_obj.route.value,
         "X-LEO-Confidence": str(round(response_obj.confidence, 4)),
         "X-LEO-Risk": response_obj.risk_level.value,
-        "X-LEO-Proof-Valid": str(response_obj.proof.is_valid(truth_system.config.tau_sigma)) if response_obj.proof else "N/A"
+        "X-LEO-Proof-Valid": str(response_obj.proof.is_valid(truth_system.config.tau_sigma)) if response_obj.proof else "N/A",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Content-Security-Policy": "default-src 'self'"
     }
 
     return JSONResponse(content=response_data, headers=headers)

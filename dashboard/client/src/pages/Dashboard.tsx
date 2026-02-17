@@ -2,156 +2,186 @@ import { useState, useEffect } from 'react';
 import { DollarSign, Zap, TrendingUp, Activity } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 import MetricCard from '@/components/MetricCard';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Card } from '@/components/ui/card';
+import { getApiKey, getApiBaseUrl } from '@/lib/auth';
+import axios from 'axios';
 
-// Mock data - in production, this would come from the API
-const mockMetrics = {
-  costSaved: 1247.50,
-  tokensOptimized: 2847500,
-  cacheHitRate: 0.42,
-  requestsProcessed: 12847,
-};
-
-const mockChartData = [
-  { time: '00:00', cost: 0, tokens: 0, cache: 0 },
-  { time: '04:00', cost: 45, tokens: 125000, cache: 15 },
-  { time: '08:00', cost: 120, tokens: 450000, cache: 28 },
-  { time: '12:00', cost: 280, tokens: 890000, cache: 38 },
-  { time: '16:00', cost: 650, tokens: 1850000, cache: 42 },
-  { time: '20:00', cost: 1100, tokens: 2500000, cache: 45 },
-  { time: '24:00', cost: 1247.50, tokens: 2847500, cache: 42 },
-];
-
-const routeDistribution = [
-  { name: 'Cache Hits', value: 42, color: '#10B981' },
-  { name: 'Fast Route', value: 38, color: '#3B82F6' },
-  { name: 'Consensus', value: 20, color: '#F59E0B' },
-];
-
-const tenantData = [
-  { name: 'Tenant A', requests: 3500, savings: 350, cacheHit: 45 },
-  { name: 'Tenant B', requests: 2800, savings: 280, cacheHit: 38 },
-  { name: 'Tenant C', requests: 2100, savings: 210, cacheHit: 35 },
-  { name: 'Tenant D', requests: 1900, savings: 190, cacheHit: 32 },
-  { name: 'Tenant E', requests: 1547, savings: 217, cacheHit: 42 },
-];
+interface AnalyticsData {
+  tenant: {
+    id: string;
+    name: string;
+    tier: string;
+    usage: {
+      tokens_used: number;
+      token_quota: number;
+      cost_used: number;
+      cost_limit: number;
+    }
+  };
+  optimization_metrics: {
+    total_requests: number;
+    cache_hits: number;
+    cache_hit_rate: number;
+    tokens_saved: number;
+    cost_saved: number;
+    average_confidence: number;
+  };
+}
 
 export default function Dashboard() {
-  const [metrics, setMetrics] = useState(mockMetrics);
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate fetching data from the API
-    setLoading(true);
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const fetchAnalytics = async () => {
+      const apiKey = getApiKey() || 'leo_admin_secret_key'; // Fallback for initial view
+      try {
+        setLoading(true);
+        const response = await axios.get(`${getApiBaseUrl()}/v1/analytics`, {
+          headers: { 'X-API-Key': apiKey }
+        });
+        setData(response.data);
+        setError(null);
+      } catch (err: any) {
+        console.error('Failed to fetch analytics:', err);
+        setError(err.response?.data?.detail || 'Failed to connect to LEO Optima API');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+    const interval = setInterval(fetchAnalytics, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
   }, []);
 
-  const currentTenant = {
-    id: 'tenant-001',
-    name: 'Acme Corp',
-    tier: 'pro',
+  if (loading && !data) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 bg-destructive/10 border border-destructive rounded-lg text-destructive">
+          <h2 className="text-lg font-bold">Error</h2>
+          <p>{error}</p>
+          <p className="mt-2 text-sm">Make sure the LEO Optima server is running and your API key is correct.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const metrics = data?.optimization_metrics || {
+    cost_saved: 0,
+    tokens_saved: 0,
+    cache_hit_rate: 0,
+    total_requests: 0
   };
 
+  const tenant = data?.tenant || {
+    name: 'Loading...',
+    tier: 'free'
+  };
+
+  const routeDistribution = [
+    { name: 'Cache Hits', value: Math.round(metrics.cache_hit_rate * 100), color: '#10B981' },
+    { name: 'API Requests', value: 100 - Math.round(metrics.cache_hit_rate * 100), color: '#3B82F6' },
+  ];
+
   return (
-    <DashboardLayout currentTenant={currentTenant}>
+    <DashboardLayout currentTenant={{ id: tenant.id, name: tenant.name, tier: tenant.tier }}>
       <div className="space-y-6">
-        {/* Page Header */}
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's your LEO Optima performance overview.</p>
+          <p className="text-muted-foreground">Real-time performance metrics for {tenant.name}.</p>
         </div>
 
-        {/* Key Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Total Cost Saved"
-            value={`$${metrics.costSaved.toFixed(2)}`}
+            value={`$${metrics.cost_saved.toFixed(2)}`}
             icon={<DollarSign className="w-6 h-6" />}
-            trend={{ value: 24, isPositive: true }}
-            description="This month"
+            description="Lifetime savings"
             color="green"
           />
           <MetricCard
             title="Tokens Optimized"
-            value={(metrics.tokensOptimized / 1000000).toFixed(1)}
-            unit="M"
+            value={(metrics.tokens_saved / 1000).toFixed(1)}
+            unit="K"
             icon={<Zap className="w-6 h-6" />}
-            trend={{ value: 18, isPositive: true }}
             description="Tokens reduced"
             color="blue"
           />
           <MetricCard
             title="Cache Hit Rate"
-            value={`${(metrics.cacheHitRate * 100).toFixed(1)}%`}
+            value={`${(metrics.cache_hit_rate * 100).toFixed(1)}%`}
             icon={<TrendingUp className="w-6 h-6" />}
-            trend={{ value: 12, isPositive: true }}
-            description="Avg. this week"
+            description="Optimization efficiency"
             color="green"
           />
           <MetricCard
             title="Requests Processed"
-            value={metrics.requestsProcessed.toLocaleString()}
+            value={metrics.total_requests.toLocaleString()}
             icon={<Activity className="w-6 h-6" />}
-            trend={{ value: 8, isPositive: true }}
-            description="Total today"
+            description="Total processed"
             color="amber"
           />
         </div>
 
-        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Cost & Token Savings Chart */}
           <Card className="lg:col-span-2 p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">Cost & Token Savings Over Time</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="time" stroke="#64748B" />
-                <YAxis stroke="#64748B" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '0.5rem',
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="cost"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Cost Saved ($)"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="tokens"
-                  stroke="#3B82F6"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Tokens Saved (K)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <h2 className="text-lg font-bold text-foreground mb-4">Quota Usage</h2>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium">Token Quota</span>
+                  <span className="text-sm text-muted-foreground">
+                    {data?.tenant.usage.tokens_used.toLocaleString()} / {data?.tenant.usage.token_quota.toLocaleString()}
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2.5">
+                  <div 
+                    className="bg-primary h-2.5 rounded-full" 
+                    style={{ width: `${Math.min(100, (data?.tenant.usage.tokens_used || 0) / (data?.tenant.usage.token_quota || 1) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium">Cost Limit</span>
+                  <span className="text-sm text-muted-foreground">
+                    ${data?.tenant.usage.cost_used.toFixed(2)} / ${data?.tenant.usage.cost_limit.toFixed(2)}
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2.5">
+                  <div 
+                    className="bg-amber-500 h-2.5 rounded-full" 
+                    style={{ width: `${Math.min(100, (data?.tenant.usage.cost_used || 0) / (data?.tenant.usage.cost_limit || 1) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
           </Card>
 
-          {/* Route Distribution */}
           <Card className="p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">Request Routes</h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <h2 className="text-lg font-bold text-foreground mb-4">Optimization Split</h2>
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
                   data={routeDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
+                  outerRadius={80}
+                  paddingAngle={5}
                   dataKey="value"
                 >
                   {routeDistribution.map((entry, index) => (
@@ -174,33 +204,6 @@ export default function Dashboard() {
             </div>
           </Card>
         </div>
-
-        {/* Tenant Performance */}
-        <Card className="p-6">
-          <h2 className="text-lg font-bold text-foreground mb-4">Multi-Tenant Performance</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Tenant</th>
-                  <th className="text-right py-3 px-4 font-semibold text-foreground">Requests</th>
-                  <th className="text-right py-3 px-4 font-semibold text-foreground">Cost Saved</th>
-                  <th className="text-right py-3 px-4 font-semibold text-foreground">Cache Hit %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenantData.map((tenant) => (
-                  <tr key={tenant.name} className="border-b border-border hover:bg-card/50 transition-colors">
-                    <td className="py-3 px-4 text-foreground font-medium">{tenant.name}</td>
-                    <td className="text-right py-3 px-4 text-muted-foreground">{tenant.requests.toLocaleString()}</td>
-                    <td className="text-right py-3 px-4 text-green-600 font-semibold">${tenant.savings}</td>
-                    <td className="text-right py-3 px-4 text-foreground">{tenant.cacheHit}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
       </div>
     </DashboardLayout>
   );
