@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Security, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.security.api_key import APIKeyHeader, APIKey
 import httpx
 import json
 import os
@@ -14,6 +15,23 @@ from leo_optima_single_model import (
 )
 
 app = FastAPI(title="LEO Optima Universal Proxy v1.0")
+
+# API Key Security
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def get_api_key(
+    api_key_header: str = Security(api_key_header),
+):
+    expected_api_key = os.getenv("LEO_API_KEY")
+    # If no key is set in environment, we allow access (default behavior for local dev)
+    # But if it is set, we enforce it.
+    if expected_api_key and api_key_header != expected_api_key:
+        raise HTTPException(
+            status_code=403,
+            detail="Could not validate credentials",
+        )
+    return api_key_header
 
 # Initialize TruthOptima for advanced routing
 truth_system = TruthOptima()
@@ -88,7 +106,7 @@ metrics = OptimizationMetrics()
 # ============================================================
 
 @app.get("/v1/analytics")
-async def get_analytics():
+async def get_analytics(api_key: APIKey = Depends(get_api_key)):
     """Return comprehensive analytics including optimization metrics"""
     return {
         'leo_optima_stats': truth_system.stats,
@@ -98,7 +116,7 @@ async def get_analytics():
     }
 
 @app.post("/v1/chat/completions")
-async def proxy_chat_completions(request: Request):
+async def proxy_chat_completions(request: Request, api_key: APIKey = Depends(get_api_key)):
     try:
         body = await request.json()
     except Exception:
@@ -266,7 +284,7 @@ async def stream_generator(question: str, model: str):
 # ============================================================
 
 @app.get("/v1/optimization/status")
-async def get_optimization_status():
+async def get_optimization_status(api_key: APIKey = Depends(get_api_key)):
     """Get current optimization configuration and status"""
     return {
         'config': OPTIMIZATION_CONFIG,
@@ -276,7 +294,7 @@ async def get_optimization_status():
     }
 
 @app.post("/v1/optimization/enable")
-async def enable_optimization(request: Request):
+async def enable_optimization(request: Request, api_key: APIKey = Depends(get_api_key)):
     """Enable specific optimization strategy"""
     body = await request.json()
     strategy = body.get('strategy')
@@ -294,7 +312,7 @@ async def enable_optimization(request: Request):
     }
 
 @app.post("/v1/optimization/cache/feedback")
-async def provide_cache_feedback(request: Request):
+async def provide_cache_feedback(request: Request, api_key: APIKey = Depends(get_api_key)):
     """Provide feedback on cache hit quality"""
     body = await request.json()
     cached_answer = body.get('cached_answer')
@@ -309,7 +327,7 @@ async def provide_cache_feedback(request: Request):
     }
 
 @app.get("/v1/optimization/cache/stats")
-async def get_cache_stats():
+async def get_cache_stats(api_key: APIKey = Depends(get_api_key)):
     """Get detailed cache statistics"""
     cache = single_model_optimizer.adaptive_cache
     return {
