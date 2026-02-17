@@ -192,6 +192,8 @@ async def proxy_chat_completions(request: Request):
             "cost_estimate": response_obj.cost_estimate,
             "novelty": round(response_obj.novelty, 4) if response_obj.novelty else None,
             "coherence": round(response_obj.coherence, 4) if response_obj.coherence else None,
+            "verification_id": response_obj.verification_id,
+            "audit_log": response_obj.audit_log
         },
         "optimization_metrics": {
             "cache_hit": cache_hit,
@@ -209,7 +211,16 @@ async def proxy_chat_completions(request: Request):
             "sigma": round(response_obj.proof.sigma, 4)
         }
 
-    return response_data
+    # Add Dynamic Verification Headers
+    headers = {
+        "X-LEO-Verification-ID": response_obj.verification_id,
+        "X-LEO-Route": response_obj.route.value,
+        "X-LEO-Confidence": str(round(response_obj.confidence, 4)),
+        "X-LEO-Risk": response_obj.risk_level.value,
+        "X-LEO-Proof-Valid": str(response_obj.proof.is_valid(truth_system.config.tau_sigma)) if response_obj.proof else "N/A"
+    }
+
+    return JSONResponse(content=response_data, headers=headers)
 
 async def stream_generator(question: str, model: str):
     """Generator for OpenAI-compatible SSE streaming with optimizations"""
