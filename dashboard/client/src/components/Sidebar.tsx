@@ -37,12 +37,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="h-full flex flex-col">
           {/* Logo Section */}
-          <div className="h-16 flex items-center justify-center border-b border-sidebar-border">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                <span className="text-sidebar-primary-foreground font-bold text-sm">L</span>
+          <div className="h-20 flex items-center px-6 border-b border-sidebar-border">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-lg shadow-sidebar-primary/20">
+                <TrendingDown className="text-sidebar-primary-foreground w-5 h-5" />
               </div>
-              <span className="font-bold text-sidebar-foreground hidden sm:inline">LEO</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-sidebar-foreground text-sm leading-none">LEO Optima</span>
+                <span className="text-[10px] text-sidebar-foreground/50 mt-1 uppercase tracking-wider font-medium">By BADJAB</span>
+              </div>
             </div>
           </div>
 
@@ -71,10 +74,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-sidebar-border p-4 space-y-3">
-            <div className="text-xs text-sidebar-foreground/60">
-              <p>LEO Optima v2.0</p>
-              <p>Multi-Tenant Edition</p>
+          <div className="border-t border-sidebar-border p-6">
+            <div className="bg-sidebar-accent/50 rounded-xl p-4 border border-sidebar-border">
+              <p className="text-xs font-bold text-sidebar-foreground mb-1">Community Hub</p>
+              <p className="text-[10px] text-sidebar-foreground/60 mb-3">Built for the AI Community</p>
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" size="sm" className="w-full text-[10px] h-8 bg-sidebar-background border-sidebar-border hover:bg-sidebar-accent" asChild>
+                  <a href="https://github.com/BADJAB22/leo-optima" target="_blank" rel="noreferrer">
+                    Star on GitHub
+                  </a>
+                </Button>
+                <a href="https://twitter.com/BADJAB22" target="_blank" rel="noreferrer" className="text-[10px] text-sidebar-foreground/40 hover:text-sidebar-foreground text-center transition-colors">
+                  Follow @BADJAB22
+                </a>
+              </div>
             </div>
           </div>
         </div>

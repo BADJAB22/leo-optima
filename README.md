@@ -1,86 +1,103 @@
-# 🦁 LEO Optima: Open Source LLM Optimization Layer
+# 🦁 LEO Optima: The Intelligent LLM Cost-Reduction Layer
 
-**LEO Optima Community Edition** is a high-performance, self-hosted routing and optimization engine designed to reduce LLM API costs by **60-80%** while maintaining response quality. 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://github.com/ellerbrock/open-source-badges/)
+[![Twitter Follow](https://img.shields.io/twitter/follow/BADJAB22?style=social)](https://twitter.com/BADJAB22)
 
-This project is **100% Free and Open Source**, built for the community to make advanced LLM orchestration accessible to everyone.
+**LEO Optima** is a high-performance, self-hosted orchestration engine designed to slash your LLM API costs by **60-80%** without sacrificing a shred of quality. It sits intelligently between your application and your AI providers, ensuring every token spent is a token earned.
 
----
-
-## 🚀 Key Features
-
-### 📊 Community Dashboard
-LEO Optima includes a built-in web dashboard for real-time monitoring of your local optimization engine:
-- **Real-time Metrics**: Monitor cost savings, token optimization, and cache performance.
-- **Usage Tracking**: Keep an eye on your token usage and cost estimates.
-- **Performance Visualizations**: Interactive charts showing optimization trends.
-
-### 🧠 Optimization Pipeline
-1.  **Request Deduplication**: Automatically batches identical requests to prevent redundant API calls.
-2.  **Adaptive Semantic Cache**: Uses dynamic similarity thresholds to serve similar queries from local storage (Redis + SQLite).
-3.  **Query Decomposition**: Breaks complex queries into simpler parts to maximize cache reuse.
-4.  **Prompt Optimization**: Strips redundant tokens from prompts to save costs directly.
-5.  **Confidence Scoring**: Scores model responses and automatically retries if quality is below threshold.
+Built by **[BADJAB](https://github.com/BADJAB22)** | [badjab.io](https://badjab.io)
 
 ---
 
-## 🛠️ Quick Start
+## 🚀 Why LEO Optima?
 
-### 1. Run with Docker (Recommended)
-The easiest way to get started is using Docker Compose, which sets up the API, the Dashboard, and a Redis cache automatically.
+In the world of Generative AI, tokens are currency. Most applications waste thousands of dollars on redundant queries, over-complicated prompts, and expensive models for simple tasks. 
 
+LEO Optima changes the game by treating your AI calls with the same efficiency as a high-frequency trading system.
+
+### 💡 Key Benefits
+- **💰 Massive Savings**: Reduce OpenAI, Anthropic, and Gemini bills by up to 80% through aggressive semantic caching and prompt optimization.
+- **⚡ Blazing Speed**: Serve repeated or similar queries in milliseconds directly from your local Redis cache.
+- **🛡️ Quality Assurance**: Built-in Byzantine Consensus and Confidence Scoring ensure you never get a "hallucinated" or low-quality response.
+- **🌐 Multi-LLM Native**: One interface to rule them all. Switch between GPT-4, Claude 3.5, and Gemini without changing a line of code.
+
+---
+
+## 🧠 The Optimization Engine
+
+LEO Optima isn't just a proxy; it's a brain. It uses a sophisticated pipeline to handle every request:
+
+1.  **Request Deduplication**: Identical requests waiting in line? LEO processes one and serves all, for free.
+2.  **Adaptive Semantic Cache**: Using **Johnson-Lindenstrauss Projection**, LEO understands the *meaning* of your queries, serving similar answers even if the wording differs.
+3.  **Query Decomposition**: Complex questions are broken down into smaller, cacheable fragments, maximizing reuse.
+4.  **Prompt Slimming**: Automatically strips redundant tokens and "fluff" from your prompts before they hit the paid API.
+5.  **Byzantine Verification**: For high-risk queries, LEO can cross-verify across multiple models to ensure absolute truth.
+
+---
+
+## 📊 Professional Dashboard
+
+Stop guessing your savings. LEO Optima comes with a sleek, real-time dashboard that gives you the full picture:
+- **Live Cost Tracking**: See exactly how much you've saved in USD.
+- **Token Efficiency**: Track your optimization ratio and cache hit rates.
+- **Route Analysis**: Visualize how LEO routes your traffic between Cache, Fast, and Consensus paths.
+
+---
+
+## 🛠️ Quick Start (Get running in 120 seconds)
+
+### The Docker Way (Recommended)
 ```bash
-# Clone the repository
+# Clone the masterpiece
 git clone https://github.com/BADJAB22/leo-optima.git
 cd leo-optima
 
-# Setup environment
+# Set your keys
 cp .env.example .env
-# Edit .env to add your OPENAI_API_KEY and a secret LEO_API_KEY
+# Open .env and add your OPENAI_API_KEY and a secret LEO_API_KEY
 
-# Start everything
+# Ignite the engine
 docker compose up --build -d
 ```
 
-- **API Server**: `http://localhost:8000`
 - **Dashboard**: `http://localhost:3000`
-
-### 2. Manual Installation
-```bash
-pip install -r requirements.txt
-export OPENAI_API_KEY="sk-..."
-export LEO_API_KEY="your_secret_key"
-python proxy_server.py
-```
+- **API Proxy**: `http://localhost:8000`
 
 ---
 
-## 🔌 Integration
+## 🔌 One-Line Integration
 
-LEO Optima is a **drop-in replacement** for OpenAI. Simply change your `base_url` and add the `X-API-Key` header.
+LEO Optima is a **drop-in replacement**. If your code works with OpenAI, it works with LEO.
 
-### Python Example
 ```python
 from openai import OpenAI
 
+# Just point the base_url to your local LEO instance
 client = OpenAI(
-    api_key="your-openai-key",
+    api_key="your-provider-key", 
     base_url="http://localhost:8000/v1",
-    default_headers={"X-API-Key": "your_leo_key"}
+    default_headers={"X-API-Key": "your_secret_leo_key"}
 )
 
+# LEO handles the rest - saving you money on every call
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Hello!"}]
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain quantum computing simply."}]
 )
 ```
 
 ---
 
-## 🤝 Contributing
-We welcome contributions from the community! Whether it's a bug fix, a new feature, or improved documentation, feel free to open an issue or submit a pull request.
+## 🤝 Join the Movement
 
-## 📄 License
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This is a **100% Free and Open Source** project. We believe high-performance AI should be affordable for every developer.
+
+- **Found a bug?** Open an [Issue](https://github.com/BADJAB22/leo-optima/issues).
+- **Have an idea?** Submit a [Pull Request](https://github.com/BADJAB22/leo-optima/pulls).
+- **Want to chat?** Follow me on Twitter [**@BADJAB22**](https://twitter.com/BADJAB22).
+
+Built with ❤️ by **BADJAB** for the global AI community.
 
 ---
-**Built with ❤️ for the AI Community.**
+**License**: MIT. Free to use, modify, and scale.
