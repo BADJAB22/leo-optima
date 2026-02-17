@@ -43,8 +43,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <TrendingDown className="text-sidebar-primary-foreground w-5 h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-sidebar-foreground text-sm leading-none">LEO Optima</span>
-                <span className="text-[10px] text-sidebar-foreground/50 mt-1 uppercase tracking-wider font-medium">By BADJAB</span>
+                <span className="font-bold text-sidebar-foreground text-sm leading-none tracking-tight">LEO Optima</span>
+                <span className="text-[9px] text-sidebar-foreground/40 mt-1 uppercase tracking-widest font-bold">Kadropic Labs</span>
               </div>
             </div>
           </div>
@@ -75,18 +75,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* Footer */}
           <div className="border-t border-sidebar-border p-6">
-            <div className="bg-sidebar-accent/50 rounded-xl p-4 border border-sidebar-border">
-              <p className="text-xs font-bold text-sidebar-foreground mb-1">Community Hub</p>
-              <p className="text-[10px] text-sidebar-foreground/60 mb-3">Built for the AI Community</p>
+            <div className="bg-sidebar-accent/30 rounded-xl p-4 border border-sidebar-border/50">
+              <p className="text-[11px] font-bold text-sidebar-foreground mb-1">Bader Jamal</p>
+              <p className="text-[9px] text-sidebar-foreground/50 mb-3">Founder, Kadropic Labs</p>
               <div className="flex flex-col gap-2">
-                <Button variant="outline" size="sm" className="w-full text-[10px] h-8 bg-sidebar-background border-sidebar-border hover:bg-sidebar-accent" asChild>
-                  <a href="https://github.com/BADJAB22/leo-optima" target="_blank" rel="noreferrer">
-                    Star on GitHub
+                <Button variant="outline" size="sm" className="w-full text-[10px] h-8 bg-sidebar-background border-sidebar-border hover:bg-sidebar-accent transition-all duration-200" asChild>
+                  <a href="https://kadropiclabs.com" target="_blank" rel="noreferrer">
+                    Visit Website
                   </a>
                 </Button>
-                <a href="https://twitter.com/BADJAB22" target="_blank" rel="noreferrer" className="text-[10px] text-sidebar-foreground/40 hover:text-sidebar-foreground text-center transition-colors">
-                  Follow @BADJAB22
-                </a>
+                <div className="flex justify-between px-1">
+                  <a href="https://twitter.com/baderjamal0" target="_blank" rel="noreferrer" className="text-[9px] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
+                    X/Twitter
+                  </a>
+                  <a href="https://www.linkedin.com/in/bader-jamal-466a6b86" target="_blank" rel="noreferrer" className="text-[9px] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
+                    LinkedIn
+                  </a>
+                </div>
               </div>
             </div>
           </div>

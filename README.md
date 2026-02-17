@@ -1,63 +1,70 @@
 # 🦁 LEO Optima: The Intelligent LLM Cost-Reduction Layer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://github.com/ellerbrock/open-source-badges/)
-[![Twitter Follow](https://img.shields.io/twitter/follow/BADJAB22?style=social)](https://twitter.com/BADJAB22)
-
-**LEO Optima** is a high-performance, self-hosted orchestration engine designed to slash your LLM API costs by **60-80%** without sacrificing a shred of quality. It sits intelligently between your application and your AI providers, ensuring every token spent is a token earned.
-
-Built by **[BADJAB](https://github.com/BADJAB22)** | [badjab.io](https://badjab.io)
-
----
-
-## 🚀 Why LEO Optima?
-
-In the world of Generative AI, tokens are currency. Most applications waste thousands of dollars on redundant queries, over-complicated prompts, and expensive models for simple tasks. 
-
-LEO Optima changes the game by treating your AI calls with the same efficiency as a high-frequency trading system.
-
-### 💡 Key Benefits
-- **💰 Massive Savings**: Reduce OpenAI, Anthropic, and Gemini bills by up to 80% through aggressive semantic caching and prompt optimization.
-- **⚡ Blazing Speed**: Serve repeated or similar queries in milliseconds directly from your local Redis cache.
-- **🛡️ Quality Assurance**: Built-in Byzantine Consensus and Confidence Scoring ensure you never get a "hallucinated" or low-quality response.
-- **🌐 Multi-LLM Native**: One interface to rule them all. Switch between GPT-4, Claude 3.5, and Gemini without changing a line of code.
+<div align="center">
+  <img src="https://img.shields.io/badge/Maintained%20by-Kadropic%20Labs-blue?style=for-the-badge" alt="Kadropic Labs">
+  <img src="https://img.shields.io/badge/Author-Bader%20Jamal-orange?style=for-the-badge" alt="Bader Jamal">
+  <br>
+  <a href="https://kadropiclabs.com"><img src="https://img.shields.io/badge/Website-kadropiclabs.com-lightgrey?style=flat-square&logo=google-chrome" alt="Website"></a>
+  <a href="https://twitter.com/baderjamal0"><img src="https://img.shields.io/badge/X-@baderjamal0-black?style=flat-square&logo=x" alt="X"></a>
+  <a href="https://www.linkedin.com/in/bader-jamal-466a6b86"><img src="https://img.shields.io/badge/LinkedIn-Bader%20Jamal-blue?style=flat-square&logo=linkedin" alt="LinkedIn"></a>
+</div>
 
 ---
 
-## 🧠 The Optimization Engine
+## 🚀 Stop Burning Tokens. Start Building Intelligence.
 
-LEO Optima isn't just a proxy; it's a brain. It uses a sophisticated pipeline to handle every request:
+**LEO Optima** is a high-performance, self-hosted orchestration engine that slashes LLM API costs by **60-80%** while simultaneously improving response quality. Designed for developers and enterprises who demand efficiency without compromise.
 
-1.  **Request Deduplication**: Identical requests waiting in line? LEO processes one and serves all, for free.
-2.  **Adaptive Semantic Cache**: Using **Johnson-Lindenstrauss Projection**, LEO understands the *meaning* of your queries, serving similar answers even if the wording differs.
-3.  **Query Decomposition**: Complex questions are broken down into smaller, cacheable fragments, maximizing reuse.
-4.  **Prompt Slimming**: Automatically strips redundant tokens and "fluff" from your prompts before they hit the paid API.
-5.  **Byzantine Verification**: For high-risk queries, LEO can cross-verify across multiple models to ensure absolute truth.
+Built by **[Bader Jamal](https://github.com/BADJAB22)** at **[Kadropic Labs](https://kadropiclabs.com)**.
 
 ---
 
-## 📊 Professional Dashboard
+## 💡 Why LEO Optima?
 
-Stop guessing your savings. LEO Optima comes with a sleek, real-time dashboard that gives you the full picture:
-- **Live Cost Tracking**: See exactly how much you've saved in USD.
-- **Token Efficiency**: Track your optimization ratio and cache hit rates.
-- **Route Analysis**: Visualize how LEO routes your traffic between Cache, Fast, and Consensus paths.
+In the current AI landscape, tokens are the new gold. Most applications bleed money through redundant queries, bloated prompts, and over-provisioned models. LEO Optima acts as a **Smart Financial Layer** for your AI stack.
+
+### 💰 The Value Proposition
+- **Drastic Cost Reduction**: Automatically saves up to 80% on OpenAI, Anthropic, and Gemini bills.
+- **Sub-Millisecond Speed**: Serve repeated or semantically similar queries instantly from your local cache.
+- **Provider Agnostic**: One unified interface for GPT-4, Claude 3.5, Gemini, and local models.
+- **Verifiable Truth**: Built-in Byzantine Consensus ensures you get the most accurate answer every time.
 
 ---
 
-## 🛠️ Quick Start (Get running in 120 seconds)
+## 🧠 The Optimization Core
 
-### The Docker Way (Recommended)
+LEO Optima isn't just a proxy; it's a multi-stage intelligence pipeline:
+
+1.  **Request Deduplication**: Identical concurrent requests are batched. Process once, serve all—zero extra cost.
+2.  **Adaptive Semantic Cache**: Powered by **Johnson-Lindenstrauss Projection**, LEO understands the *intent* of your queries, serving cached answers even if the wording changes.
+3.  **Query Decomposition**: Complex tasks are broken into atomic, cacheable fragments to maximize future reuse.
+4.  **Prompt Slimming**: Automatically removes "token fluff" from your prompts before they hit the paid API.
+5.  **Byzantine Verification**: Cross-verifies high-stakes queries across multiple models for absolute reliability.
+
+---
+
+## 📊 Real-Time Savings Dashboard
+
+Don't just take our word for it. Monitor your ROI in real-time with the built-in **Kadropic Analytics Dashboard**:
+- **Live USD Savings**: Track every cent saved from hitting the paid APIs.
+- **Cache Performance**: Visual hit-rate metrics and optimization ratios.
+- **Route Intelligence**: See how LEO routes your traffic between Cache, Fast, and Consensus paths.
+
+---
+
+## 🛠️ Quick Start (120 Seconds)
+
+### Deploy with Docker (Recommended)
 ```bash
-# Clone the masterpiece
+# Clone the core engine
 git clone https://github.com/BADJAB22/leo-optima.git
 cd leo-optima
 
-# Set your keys
+# Configure your secrets
 cp .env.example .env
-# Open .env and add your OPENAI_API_KEY and a secret LEO_API_KEY
+# Add your Provider Keys (OpenAI, Anthropic, etc.) and your secret LEO_API_KEY
 
-# Ignite the engine
+# Ignite
 docker compose up --build -d
 ```
 
@@ -66,38 +73,37 @@ docker compose up --build -d
 
 ---
 
-## 🔌 One-Line Integration
+## 🔌 Drop-in Integration
 
-LEO Optima is a **drop-in replacement**. If your code works with OpenAI, it works with LEO.
+LEO Optima is a **seamless replacement** for your existing OpenAI SDK setup. Change one line of code, and you're saving money.
 
 ```python
 from openai import OpenAI
 
-# Just point the base_url to your local LEO instance
+# Simply point to your local LEO instance
 client = OpenAI(
     api_key="your-provider-key", 
     base_url="http://localhost:8000/v1",
     default_headers={"X-API-Key": "your_secret_leo_key"}
 )
 
-# LEO handles the rest - saving you money on every call
+# Use as normal—LEO handles the optimization magic
 response = client.chat.completions.create(
     model="gpt-4o",
-    messages=[{"role": "user", "content": "Explain quantum computing simply."}]
+    messages=[{"role": "user", "content": "Analyze our Q4 growth strategy."}]
 )
 ```
 
 ---
 
-## 🤝 Join the Movement
+## 🤝 Community & Support
 
-This is a **100% Free and Open Source** project. We believe high-performance AI should be affordable for every developer.
+LEO Optima is **100% Free and Open Source**. We believe high-performance AI should be accessible to every visionary developer.
 
 - **Found a bug?** Open an [Issue](https://github.com/BADJAB22/leo-optima/issues).
-- **Have an idea?** Submit a [Pull Request](https://github.com/BADJAB22/leo-optima/pulls).
-- **Want to chat?** Follow me on Twitter [**@BADJAB22**](https://twitter.com/BADJAB22).
-
-Built with ❤️ by **BADJAB** for the global AI community.
+- **Want to contribute?** We love [Pull Requests](https://github.com/BADJAB22/leo-optima/pulls).
+- **Direct Contact?** Connect with me on [**LinkedIn**](https://www.linkedin.com/in/bader-jamal-466a6b86) or [**X**](https://twitter.com/baderjamal0).
 
 ---
-**License**: MIT. Free to use, modify, and scale.
+**Crafted with precision by [Kadropic Labs](https://kadropiclabs.com).**
+**License**: MIT. Built for the builders.

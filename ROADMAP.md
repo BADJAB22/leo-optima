@@ -1,44 +1,50 @@
-# 🗺️ LEO Optima: The Journey to Efficient AI
+# 🗺️ LEO Optima: The Path to Universal AI Efficiency
 
-This roadmap outlines where we've been, where we are, and where we're going. LEO Optima is a community-driven project, and your feedback directly shapes this list!
-
----
-
-## ✅ Phase 1: The Core Engine (Completed)
-The goal was to build a mathematically sound, zero-dependency optimization layer.
-- [x] **Lightweight Semantics**: Implementation of Johnson-Lindenstrauss Projection for fast, local embeddings.
-- [x] **Smart Routing**: Development of the Novelty and Coherence engines to decide when to cache and when to call the API.
-- [x] **Byzantine Consensus**: Multi-model verification for high-stakes queries.
-- [x] **Verifiable Proofs**: Cryptographic proof fragments for every optimized response.
+This roadmap outlines the evolution of **LEO Optima** from a core research project at **Kadropic Labs** to a global community-driven optimization standard.
 
 ---
 
-## ✅ Phase 2: Professionalization (Completed)
-Making the engine ready for real-world developers.
-- [x] **Community Dashboard**: A sleek React-based UI to visualize savings and performance.
-- [x] **Multi-Tenant Identity**: Secure API key management for local multi-user setups.
-- [x] **Docker Orchestration**: One-command deployment with Redis and Nginx.
-- [x] **Streaming Support**: Full SSE support for that snappy "ChatGPT-like" typing experience.
+## ✅ Phase 1: Mathematical Foundation (Completed)
+Establishing the core intelligence layer.
+- [x] **Lightweight Semantics**: Implementation of the Johnson-Lindenstrauss Projection engine.
+- [x] **Smart Routing Architecture**: Development of Novelty and Coherence metrics for intelligent pathfinding.
+- [x] **Byzantine-Robust Consensus**: Multi-model verification for high-stakes AI outputs.
+- [x] **Verifiable Proof Fragments**: Cryptographic auditing for every optimized response.
 
 ---
 
-## 🛠️ Phase 3: Expansion (In Progress)
-Broadening the horizons and making LEO even smarter.
-- [ ] **Native Anthropic/Gemini Support**: Built-in adapters for the world's leading LLMs.
-- [ ] **Local Model Integration**: Seamless fallback to Ollama/vLLM for ultra-low-cost "Draft" responses.
-- [ ] **Advanced Prompt Compression**: Moving beyond simple word removal to intelligent, context-aware prompt slimming.
-- [ ] **Plugin Architecture**: Allow the community to write their own "Optimization Strategies."
+## ✅ Phase 2: Production Readiness (Completed)
+Making the engine accessible and monitorable.
+- [x] **Kadropic Analytics Dashboard**: Real-time visualization of cost savings and performance.
+- [x] **Identity & Quota Management**: Multi-tenant support for local orchestration.
+- [x] **Full Stack Containerization**: One-command deployment via Docker Compose.
+- [x] **Streaming Optimization**: Real-time SSE support for low-latency user experiences.
 
 ---
 
-## 🚀 Phase 4: The Future Vision
-- [ ] **On-Device Optimization**: Bringing LEO's intelligence to mobile and edge devices.
-- [ ] **Decentralized Verification**: Using LEO's proof fragments for a global network of verifiable AI.
-- [ ] **Auto-Tuning**: An AI that watches your traffic and automatically tunes its own thresholds for maximum ROI.
+## 🛠️ Phase 3: Global Expansion (In Progress)
+Broadening support and deepening intelligence.
+- [ ] **Native Multi-Provider Adapters**: Deep integration for Claude 3.5, Gemini 1.5, and Mistral.
+- [ ] **Hybrid Cloud/Local Routing**: Automatic fallback to local models (Ollama/vLLM) for cost-zero drafting.
+- [ ] **Context-Aware Prompt Compression**: Advanced NLP-based prompt slimming to reduce input tokens by up to 40%.
+- [ ] **Developer Plugin System**: Enabling the community to build custom optimization "Hooks."
 
 ---
 
-## 💡 Get Involved!
-LEO Optima is built by **[BADJAB](https://twitter.com/BADJAB22)** and the amazing AI community. 
+## 🚀 Phase 4: The Long-Term Vision
+- [ ] **On-Device Optimization SDK**: Bringing LEO's intelligence to mobile and edge hardware.
+- [ ] **Decentralized Verification Network**: Leveraging Proof Fragments for global AI auditability.
+- [ ] **Self-Learning Thresholds**: Reinforcement learning to automatically tune optimization parameters for maximum ROI.
 
-If you want to see a feature on this list, open an issue or, better yet, a Pull Request! Let's make AI affordable for everyone. 🦁
+---
+
+## 🦁 Get Involved
+
+LEO Optima is an open-source initiative by **Bader Jamal** and **Kadropic Labs**. We invite the community to join us in making AI sustainable and affordable.
+
+- **Founder**: [Bader Jamal](https://www.linkedin.com/in/bader-jamal-466a6b86)
+- **Twitter**: [@baderjamal0](https://twitter.com/baderjamal0)
+- **Website**: [kadropiclabs.com](https://kadropiclabs.com)
+
+---
+**Let's build the future of efficient AI together.**

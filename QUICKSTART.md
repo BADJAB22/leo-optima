@@ -1,60 +1,60 @@
-# ⚡ LEO Optima Quick Start Guide
+# ⚡ LEO Optima: 120-Second Deployment Guide
 
-Welcome to the future of cost-efficient AI! This guide will get you from "Zero" to "Saving Money" in less than 2 minutes.
+Welcome to **LEO Optima**, the industry's most efficient LLM cost-reduction layer. Let's get you set up to start saving money immediately.
 
 ---
 
-## 🛠️ Step 1: Environment Setup
+## 🏗️ 1. Environment Setup
 
-LEO Optima is designed to be plug-and-play. Choose your preferred way to run:
+LEO Optima is built for stability and ease of use. Choose your deployment path:
 
-### A. The "I want it now" way (Docker)
-This is the most stable way. It sets up the API, the Dashboard, and the Redis cache in one go.
+### Option A: Docker (Recommended for Production)
+This path deploys the API, the Analytics Dashboard, and the Redis cache layer in a single command.
 
 ```bash
 git clone https://github.com/BADJAB22/leo-optima.git
 cd leo-optima
 cp .env.example .env
-# Open .env and add your API keys (OpenAI, Anthropic, etc.)
+# Open .env and add your API keys (OpenAI, Claude, etc.)
 docker compose up --build -d
 ```
 
-### B. The "I'm a Python purist" way (Manual)
+### Option B: Manual (Development Only)
 ```bash
-# Install the essentials
+# Install dependencies
 pip install -r requirements.txt
 
-# Set your secrets
+# Set your environment
 export OPENAI_API_KEY="sk-..."
-export LEO_API_KEY="create_a_strong_password_here"
+export LEO_API_KEY="your_custom_secure_key"
 
-# Start the engine
+# Run the engine
 python proxy_server.py
 ```
 
 ---
 
-## 🔌 Step 2: Connect Your App
+## 🔌 2. Seamless Integration
 
-You don't need to rewrite your code. Just point your existing OpenAI client to LEO.
+Update your existing application to route through LEO Optima. No logic changes required.
 
-### Python
+### Python (OpenAI SDK)
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="your_actual_openai_key",
-    base_url="http://localhost:8000/v1", # The magic line
+    api_key="your_actual_api_key",
+    base_url="http://localhost:8000/v1", # Route through LEO
     default_headers={"X-API-Key": "your_leo_key"}
 )
 ```
 
-### Node.js
+### Node.js (OpenAI SDK)
 ```javascript
 const OpenAI = require("openai");
 
 const client = new OpenAI({
-  apiKey: "your_actual_openai_key",
+  apiKey: "your_actual_api_key",
   baseURL: "http://localhost:8000/v1",
   defaultHeaders: { "X-API-Key": "your_leo_key" }
 });
@@ -62,27 +62,26 @@ const client = new OpenAI({
 
 ---
 
-## 📊 Step 3: Watch the Savings
+## 📊 3. Access the Dashboard
 
-Once you've sent a few requests, head over to your browser:
+Monitor your savings and performance in real-time:
 
 👉 **[http://localhost:3000](http://localhost:3000)**
 
-Login with your `LEO_API_KEY`. You'll see:
-- **Total USD Saved**: Watch your balance stay in your pocket.
-- **Cache Hits**: See how many requests LEO answered without hitting the paid API.
-- **Token Efficiency**: A real-time view of your prompt optimization.
+Login using the `LEO_API_KEY` defined in your environment. You'll get instant visibility into:
+- **Total USD Saved**
+- **Token Optimization Ratios**
+- **Semantic Cache Hit Rates**
 
 ---
 
-## 💡 Pro Tips for Maximum ROI
+## 🦁 About the Author
 
-1.  **Consistency is King**: The more you use the same model (e.g., `gpt-4o`), the better LEO gets at caching and optimizing for that specific logic.
-2.  **Feedback Loop**: Use the dashboard to see which queries are hitting the cache. If a query should have been cached but wasn't, you can adjust your similarity thresholds in the config.
-3.  **Multi-LLM**: Don't forget that LEO can route to different providers. Try mixing Claude for complex tasks and GPT for fast ones!
+LEO Optima is a project by **Bader Jamal**, founder of **Kadropic Labs**. We are dedicated to building tools that make the AI revolution affordable and sustainable.
+
+- **Website**: [kadropiclabs.com](https://kadropiclabs.com)
+- **LinkedIn**: [Bader Jamal](https://www.linkedin.com/in/bader-jamal-466a6b86)
+- **X (Twitter)**: [@baderjamal0](https://twitter.com/baderjamal0)
 
 ---
-
-**Need help?** Reach out to [**@BADJAB22**](https://twitter.com/BADJAB22) on Twitter or open an issue on GitHub. 
-
-Let's build smarter, not more expensive! 🦁
+**Happy Optimizing!**

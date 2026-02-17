@@ -27,8 +27,8 @@ export default function Login() {
               <Shield className="text-primary-foreground w-8 h-8" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold">LEO Optima Community</h1>
-          <p className="text-muted-foreground text-sm">Enter your local API key to access the dashboard</p>
+          <h1 className="text-2xl font-bold">LEO Optima</h1>
+          <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold">Kadropic Analytics Platform</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -53,8 +53,9 @@ export default function Login() {
           </Button>
         </form>
 
-        <div className="text-center text-xs text-muted-foreground">
-          <p>Don't have a key? Check your environment variables or contact your administrator.</p>
+        <div className="text-center text-xs text-muted-foreground pt-4 border-t border-border/50">
+          <p className="font-medium">Bader Jamal</p>
+          <p className="text-[10px]">Founder, Kadropic Labs</p>
         </div>
       </Card>
     </div>

@@ -32,7 +32,7 @@ export default function DashboardLayout({ children, currentTenant }: DashboardLa
             >
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
-            <h1 className="text-xl font-bold text-foreground hidden sm:block">LEO Optima</h1>
+            <h1 className="text-xl font-bold text-foreground hidden sm:block">LEO Optima <span className="text-xs font-normal text-muted-foreground ml-2">by Kadropic Labs</span></h1>
           </div>
 
           {/* Tenant Info & Actions */}
@@ -41,7 +41,7 @@ export default function DashboardLayout({ children, currentTenant }: DashboardLa
               <div className="hidden md:flex items-center gap-2">
                 <div className="text-right">
                   <p className="text-sm font-medium text-foreground">{currentTenant.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">Community Hub</p>
+                  <p className="text-xs text-muted-foreground capitalize">Kadropic Analytics</p>
                 </div>
               </div>
             )}
