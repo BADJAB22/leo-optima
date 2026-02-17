@@ -15,6 +15,8 @@ import asyncio
 import json
 import os
 import uuid
+import sqlite3
+import redis
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
@@ -151,27 +153,66 @@ class MicroMemory:
         self.config = config
         self.memory: List[np.ndarray] = []
         self.storage_path = storage_path
-        if self.storage_path and os.path.exists(self.storage_path):
+        self.db_path = storage_path.replace(".json", ".db") if storage_path else None
+        
+        if self.db_path:
+            self._init_db()
             self.load()
+        elif self.storage_path and os.path.exists(self.storage_path):
+            self.load_legacy_json()
+
+    def _init_db(self):
+        """Initialize SQLite database for memory persistence"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS memory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                vector BLOB NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        conn.close()
     
     def save(self):
-        """Persist memory state to disk"""
-        if not self.storage_path:
+        """Persist memory state to SQLite"""
+        if not self.db_path:
             return
-        data = [m.tolist() for m in self.memory]
-        with open(self.storage_path, 'w') as f:
-            json.dump(data, f)
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM memory')
+        for m in self.memory:
+            cursor.execute('INSERT INTO memory (vector) VALUES (?)', (m.tobytes(),))
+        conn.commit()
+        conn.close()
             
     def load(self):
-        """Load memory state from disk"""
-        if not self.storage_path or not os.path.exists(self.storage_path):
+        """Load memory state from SQLite"""
+        if not self.db_path or not os.path.exists(self.db_path):
             return
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT vector FROM memory ORDER BY id ASC')
+            rows = cursor.fetchall()
+            self.memory = [np.frombuffer(row[0], dtype=np.float32) for row in rows]
+            conn.close()
+        except Exception as e:
+            print(f"Error loading memory from DB: {e}")
+
+    def load_legacy_json(self):
+        """Load legacy JSON memory state for backward compatibility"""
         try:
             with open(self.storage_path, 'r') as f:
                 data = json.load(f)
                 self.memory = [np.array(m, dtype=np.float32) for m in data]
+            # Migrate to DB if possible
+            if self.db_path:
+                self.save()
         except Exception as e:
-            print(f"Error loading memory: {e}")
+            print(f"Error loading legacy JSON memory: {e}")
     
     def influence(self, v_raw: np.ndarray) -> np.ndarray:
         """v = v_raw + α * sum(sim(v_raw, m) * m)"""
@@ -278,16 +319,49 @@ class CoherenceEngine:
 # ============================================================
 
 class SemanticCache:
-    """Trust-weighted semantic cache with O(log N) search (Section 5)"""
+    """Trust-weighted semantic cache with Redis support and O(log N) search (Section 5)"""
     
     def __init__(self, config: TruthOptimaConfig, storage_path: Optional[str] = None):
         self.config = config
         self.data: List[Dict] = [] # (vector, answer, trust)
         self.storage_path = storage_path
+        self.db_path = storage_path.replace(".json", ".db") if storage_path else None
         self.index = None
-        if self.storage_path and os.path.exists(self.storage_path):
+        
+        # Redis connection
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_port = int(os.getenv("REDIS_PORT", 6379))
+        try:
+            self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+            self.redis.ping()
+            self.use_redis = True
+        except:
+            self.use_redis = False
+            print("Redis not available, falling back to local storage.")
+
+        if self.db_path:
+            self._init_db()
             self.load()
+        elif self.storage_path and os.path.exists(self.storage_path):
+            self.load_legacy_json()
+            
         self._rebuild_index()
+
+    def _init_db(self):
+        """Initialize SQLite database for cache persistence"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                vector BLOB NOT NULL,
+                answer TEXT NOT NULL,
+                trust REAL NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        conn.close()
             
     def _rebuild_index(self):
         """Rebuild the NearestNeighbors index for fast O(log N) search"""
@@ -296,29 +370,47 @@ class SemanticCache:
             return
         
         vectors = np.stack([entry['vector'] for entry in self.data])
-        # Use ball_tree or kd_tree for O(log N) search
         self.index = NearestNeighbors(n_neighbors=min(2, len(self.data)), metric='cosine', algorithm='auto')
         self.index.fit(vectors)
 
     def save(self):
-        """Persist cache state to disk"""
-        if not self.storage_path:
+        """Persist cache state to SQLite"""
+        if not self.db_path:
             return
-        serializable_data = []
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM cache')
         for entry in self.data:
-            serializable_data.append({
-                'vector': entry['vector'].tolist(),
-                'answer': entry['answer'],
-                'trust': entry['trust'],
-                'timestamp': entry['timestamp']
-            })
-        with open(self.storage_path, 'w') as f:
-            json.dump(serializable_data, f)
+            cursor.execute('INSERT INTO cache (vector, answer, trust, timestamp) VALUES (?, ?, ?, ?)',
+                         (entry['vector'].tobytes(), entry['answer'], entry['trust'], entry['timestamp']))
+        conn.commit()
+        conn.close()
             
     def load(self):
-        """Load cache state from disk"""
-        if not self.storage_path or not os.path.exists(self.storage_path):
+        """Load cache state from SQLite"""
+        if not self.db_path or not os.path.exists(self.db_path):
             return
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT vector, answer, trust, timestamp FROM cache ORDER BY id ASC')
+            rows = cursor.fetchall()
+            self.data = []
+            for row in rows:
+                self.data.append({
+                    'vector': np.frombuffer(row[0], dtype=np.float32),
+                    'answer': row[1],
+                    'trust': row[2],
+                    'timestamp': row[3]
+                })
+            conn.close()
+            self._rebuild_index()
+        except Exception as e:
+            print(f"Error loading cache from DB: {e}")
+
+    def load_legacy_json(self):
+        """Load legacy JSON cache state for backward compatibility"""
         try:
             with open(self.storage_path, 'r') as f:
                 serializable_data = json.load(f)
@@ -330,12 +422,22 @@ class SemanticCache:
                         'trust': entry['trust'],
                         'timestamp': entry['timestamp']
                     })
-                self._rebuild_index()
+            if self.db_path:
+                self.save()
         except Exception as e:
-            print(f"Error loading cache: {e}")
+            print(f"Error loading legacy JSON cache: {e}")
     
     def lookup(self, v: np.ndarray) -> Tuple[Optional[str], float]:
-        """O(log N) search for nearest neighbor in cache with trust gating"""
+        """O(log N) search for nearest neighbor in cache with trust gating and Redis caching"""
+        # 1. Try Redis first for exact or very recent hits
+        if self.use_redis:
+            v_hash = hashlib.md5(v.tobytes()).hexdigest()
+            cached_data = self.redis.get(f"cache:{v_hash}")
+            if cached_data:
+                entry = json.loads(cached_data)
+                return entry['answer'], 1.0
+
+        # 2. Fallback to Semantic Search
         if not self.data or self.index is None:
             return None, 0.0
         
@@ -365,12 +467,23 @@ class SemanticCache:
         return None, float(s_max)
 
     def add(self, v: np.ndarray, answer: str, trust: float):
-        self.data.append({
+        entry = {
             'vector': v,
             'answer': answer,
             'trust': trust,
             'timestamp': datetime.now().isoformat()
-        })
+        }
+        self.data.append(entry)
+        
+        # Redis Caching (Short-term exact hit)
+        if self.use_redis:
+            v_hash = hashlib.md5(v.tobytes()).hexdigest()
+            self.redis.setex(
+                f"cache:{v_hash}",
+                3600, # 1 hour TTL for Redis cache
+                json.dumps({'answer': answer, 'trust': trust})
+            )
+
         if len(self.data) > self.config.cache_max:
             self.data.pop(0)
         
