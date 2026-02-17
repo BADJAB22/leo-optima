@@ -36,7 +36,7 @@ Are you running **OpenClaw** (formerly Moltbot)? Autonomous agents like OpenClaw
 ### 💰 The Value Proposition
 - **Drastic Cost Reduction**: Automatically saves up to 80% on OpenAI, Anthropic, and Gemini bills.
 - **Sub-Millisecond Speed**: Serve repeated or semantically similar queries instantly from your local cache.
-- **Provider Agnostic**: One unified interface for GPT-4, Claude 3.5, Gemini, and local models.
+- **Provider Agnostic**: One unified interface for GPT-5, Claude 4.5, Gemini, and local models.
 - **Verifiable Truth**: Built-in Byzantine Consensus ensures you get the most accurate answer every time.
 
 ---
