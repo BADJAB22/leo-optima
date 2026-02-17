@@ -6,30 +6,51 @@ Get up and running with LEO Optima in 5 minutes!
 
 ## 🚀 Installation (2 minutes)
 
-### Option 1: Direct Installation
+### Option 1: Docker Compose (Recommended for Production)
+
+This is the easiest way to get LEO Optima running with all its features, including Redis for caching and SQLite for persistent storage.
+
+**Prerequisites:** Ensure you have Docker and Docker Compose installed on your system.
 
 ```bash
-# Clone repository
+# 1. Clone the repository
 git clone https://github.com/BADJAB22/leo-optima.git
 cd leo-optima
 
-# Install dependencies
-pip install -r requirements.txt
+# 2. Configure environment variables
+# Copy the example environment file
+cp .env.example .env
 
-# Start server
-python proxy_server.py
+# IMPORTANT: Edit the .env file to add your API keys.
+# Set OPENAI_API_KEY to your OpenAI API key.
+# Set LEO_API_KEY to a strong, secret key for securing your LEO Optima proxy.
+# Example .env content:
+# OPENAI_API_KEY=sk-your-openai-key-here
+# LEO_API_KEY=your_secret_leo_api_key
+
+# 3. Build and run the services
+docker compose up --build -d
 ```
 
-### Option 2: Docker (Recommended)
+LEO Optima will be accessible at `http://localhost:8000`. Redis will be running internally and used automatically.
+
+### Option 2: Manual Installation (for Development/Testing)
 
 ```bash
-# Build image
-docker build -t leo-optima:v2 .
+# 1. Clone the repository
+git clone https://github.com/BADJAB22/leo-optima.git
+cd leo-optima
 
-# Run container
-docker run -p 8000:8000 \
-  -e OPENAI_API_KEY=your_key_here \
-  leo-optima:v2
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Set environment variables
+# IMPORTANT: Replace with your actual keys
+export OPENAI_API_KEY="sk-your-openai-key-here"
+export LEO_API_KEY="your_secret_leo_api_key"
+
+# 4. Start the server
+python proxy_server.py
 ```
 
 **Server should start on `http://localhost:8000`**
@@ -38,50 +59,63 @@ docker run -p 8000:8000 \
 
 ## 🔌 Integration (1 minute)
 
+LEO Optima acts as a drop-in replacement for your OpenAI API calls. Just change the `base_url` and add the `X-API-Key` header.
+
 ### Python + OpenAI Client
 
 ```python
 from openai import OpenAI
+import os
 
-# Change just one line!
+# Point to LEO Optima instead of OpenAI
 client = OpenAI(
-    api_key="your-openai-key",
-    base_url="http://localhost:8000/v1"  # ← Point to LEO
+    api_key=os.getenv("OPENAI_API_KEY"), # Your OpenAI key
+    base_url="http://localhost:8000/v1",
+    default_headers={
+        "X-API-Key": os.getenv("LEO_API_KEY") # Your LEO Optima API Key
+    }
 )
 
-# Use normally
+# Use normally - LEO handles optimization automatically
 response = client.chat.completions.create(
     model="gpt-4",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 
 print(response.choices[0].message.content)
+# Access LEO Optima's metrics (if available in your client version)
+# print(response.optimization_metrics)
 ```
 
 ### Node.js + OpenAI SDK
 
 ```javascript
-const OpenAI = require('openai');
+const OpenAI = require("openai");
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  baseURL: 'http://localhost:8000/v1'  // ← Point to LEO
+  baseURL: "http://localhost:8000/v1",
+  defaultHeaders: {
+    "X-API-Key": process.env.LEO_API_KEY // Your LEO Optima API Key
+  }
 });
 
 const response = await client.chat.completions.create({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello!' }]
+  model: "gpt-4",
+  messages: [{ role: "user", content: "Hello!" }]
 });
 
 console.log(response.choices[0].message.content);
 ```
 
-### cURL
+### cURL (with API Key)
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{
+  -H "X-API-Key: your_secret_leo_api_key" \
+  -d 
+  '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "What is AI?"}]
   }'
@@ -91,10 +125,11 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 ## 📊 Monitor Savings (1 minute)
 
-### Check Analytics
+### Check Analytics (with API Key)
 
 ```bash
-curl http://localhost:8000/v1/analytics | jq '.'
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics | jq 
+'.'
 ```
 
 **Look for:**
@@ -122,24 +157,27 @@ curl http://localhost:8000/v1/analytics | jq '.'
 
 ## ⚙️ Configuration (1 minute)
 
-### Enable/Disable Optimizations
+### Enable/Disable Optimizations (with API Key)
 
 ```bash
 # Disable query decomposition
 curl -X POST http://localhost:8000/v1/optimization/enable \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"strategy": "query_decomposition", "enabled": false}'
 
 # Re-enable it
 curl -X POST http://localhost:8000/v1/optimization/enable \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"strategy": "query_decomposition", "enabled": true}'
 ```
 
-### Check Status
+### Check Status (with API Key)
 
 ```bash
-curl http://localhost:8000/v1/optimization/status | jq '.config'
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/status | jq 
+'.config'
 ```
 
 ---
@@ -152,6 +190,7 @@ curl http://localhost:8000/v1/optimization/status | jq '.config'
 # First query
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "What is machine learning?"}]
@@ -167,6 +206,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 # Second query (identical)
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "What is machine learning?"}]
@@ -185,6 +225,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [{
@@ -206,6 +247,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "Explain quantum computing"}]
@@ -245,14 +287,24 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 ## 🔧 Troubleshooting
 
-### Server Won't Start
+### Server Won't Start (Docker Compose)
+1.  **Check Docker Status**: Ensure Docker Desktop (or daemon) is running.
+2.  **Verify `.env`**: Make sure `OPENAI_API_KEY` and `LEO_API_KEY` are correctly set in your `.env` file.
+3.  **Inspect Logs**: Run `docker compose logs leo-optima` to see detailed error messages from the application container.
+4.  **Rebuild**: Try `docker compose down --volumes && docker compose up --build -d` to ensure a clean build.
+
+### Server Won't Start (Manual)
 
 ```bash
 # Check Python version
-python --version  # Should be 3.8+
+python --version  # Should be 3.11+
 
 # Check dependencies
 pip install -r requirements.txt
+
+# Verify environment variables are set
+echo $OPENAI_API_KEY
+echo $LEO_API_KEY
 
 # Try verbose mode
 python proxy_server.py --debug
@@ -262,11 +314,12 @@ python proxy_server.py --debug
 
 ```bash
 # Check cache stats
-curl http://localhost:8000/v1/optimization/cache/stats
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/cache/stats
 
 # Provide feedback to improve threshold
 curl -X POST http://localhost:8000/v1/optimization/cache/feedback \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "cached_answer": "...",
     "is_correct": true
@@ -277,11 +330,12 @@ curl -X POST http://localhost:8000/v1/optimization/cache/feedback \
 
 ```bash
 # Check which optimizations are active
-curl http://localhost:8000/v1/optimization/status
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/status
 
 # Enable all optimizations
 curl -X POST http://localhost:8000/v1/optimization/enable \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"strategy": "adaptive_cache", "enabled": true}'
 ```
 
@@ -289,10 +343,9 @@ curl -X POST http://localhost:8000/v1/optimization/enable \
 
 ## 📚 Next Steps
 
-1. **Read Full Documentation**: [README.md](README.md)
-2. **API Reference**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-3. **Technical Details**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
-4. **Single Model Guide**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
+1.  **Read Full Documentation**: [README.md](README.md)
+2.  **API Reference**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+3.  **Technical Details**: [TECHNICAL_ANALYSIS.md](TECHNICAL_ANALYSIS.md)
 
 ---
 
@@ -302,7 +355,7 @@ curl -X POST http://localhost:8000/v1/optimization/enable \
 
 ```bash
 # Watch analytics every 5 seconds
-watch -n 5 'curl -s http://localhost:8000/v1/analytics | jq ".optimization_metrics"'
+watch -n 5 'curl -s -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics | jq ".optimization_metrics"'
 ```
 
 ### Tip 2: Test with Different Queries
@@ -310,10 +363,12 @@ watch -n 5 'curl -s http://localhost:8000/v1/analytics | jq ".optimization_metri
 ```bash
 # Simple query (should cache hit quickly)
 curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"Hello"}]}'
 
 # Complex query (should decompose)
 curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"Compare A and B, explain C, then summarize"}]}'
 ```
 
@@ -322,6 +377,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ```bash
 # After each response, provide feedback
 curl -X POST http://localhost:8000/v1/optimization/cache/feedback \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"cached_answer":"...","is_correct":true}'
 
 # This improves cache threshold over time
@@ -335,7 +391,7 @@ Track these to measure success:
 
 ```bash
 # Weekly check
-curl http://localhost:8000/v1/analytics | jq '{
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics | jq '{
   cache_hit_rate: .optimization_metrics.cache_hit_rate,
   cost_saved: .optimization_metrics.cost_saved,
   tokens_saved: .optimization_metrics.tokens_saved,

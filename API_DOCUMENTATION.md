@@ -16,10 +16,9 @@ All endpoints are prefixed with `/v1` unless otherwise specified.
 
 ## Authentication
 
-Currently, LEO Optima uses the same authentication as your upstream LLM provider (e.g., OpenAI API key). Future versions will support:
-- API key authentication
-- OAuth 2.0
-- JWT tokens
+LEO Optima now supports **API Key Authentication** to secure your proxy. All endpoints, except `/health`, require an API key to be passed in the `X-API-Key` HTTP header.
+
+To configure your API key, set the `LEO_API_KEY` environment variable. If `LEO_API_KEY` is not set, authentication will be bypassed (for local development convenience).
 
 ---
 
@@ -31,10 +30,13 @@ Currently, LEO Optima uses the same authentication as your upstream LLM provider
 
 **Description:** Main endpoint for sending queries. Fully compatible with OpenAI's chat completions API.
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [
@@ -119,9 +121,11 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 **Description:** Get comprehensive analytics and performance metrics.
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
-curl http://localhost:8000/v1/analytics
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics
 ```
 
 **Response:**
@@ -174,9 +178,11 @@ curl http://localhost:8000/v1/analytics
 
 **Description:** Check which optimizations are active and their status.
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
-curl http://localhost:8000/v1/optimization/status
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/status
 ```
 
 **Response:**
@@ -209,10 +215,13 @@ curl http://localhost:8000/v1/optimization/status
 
 **Description:** Enable or disable specific optimization strategies.
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
 curl -X POST http://localhost:8000/v1/optimization/enable \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "strategy": "query_decomposition",
     "enabled": false
@@ -249,10 +258,13 @@ curl -X POST http://localhost:8000/v1/optimization/enable \
 
 **Description:** Provide feedback on cache hit quality to improve adaptive threshold.
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
 curl -X POST http://localhost:8000/v1/optimization/cache/feedback \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "cached_answer": "Machine learning is a subset of AI...",
     "is_correct": true
@@ -283,9 +295,11 @@ curl -X POST http://localhost:8000/v1/optimization/cache/feedback \
 
 **Description:** Get detailed cache statistics and recent entries.
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
-curl http://localhost:8000/v1/optimization/cache/stats
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/cache/stats
 ```
 
 **Response:**
@@ -342,10 +356,13 @@ curl http://localhost:8000/health
 
 **Description:** Get responses as a stream of Server-Sent Events (SSE).
 
+**Authentication:** Required (`X-API-Key` header)
+
 **Request:**
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "Hello"}],
@@ -420,12 +437,16 @@ LEO Optima v2.0 is fully backward compatible with v1.0:
 ```python
 import requests
 import json
+import os
 
 BASE_URL = "http://localhost:8000"
+LEO_API_KEY = os.getenv("LEO_API_KEY", "your_secret_leo_api_key") # Replace with your actual key or set env var
 
 def query_leo(message):
+    headers = {"Content-Type": "application/json", "X-API-Key": LEO_API_KEY}
     response = requests.post(
         f"{BASE_URL}/v1/chat/completions",
+        headers=headers,
         json={
             "model": "gpt-4",
             "messages": [{"role": "user", "content": message}]
@@ -434,7 +455,8 @@ def query_leo(message):
     return response.json()
 
 def get_analytics():
-    response = requests.get(f"{BASE_URL}/v1/analytics")
+    headers = {"X-API-Key": LEO_API_KEY}
+    response = requests.get(f"{BASE_URL}/v1/analytics", headers=headers)
     return response.json()
 
 # Usage
@@ -449,11 +471,12 @@ print(f"Cache hit rate: {analytics['optimization_metrics']['cache_hit_rate']:.1%
 
 ```javascript
 const BASE_URL = "http://localhost:8000";
+const LEO_API_KEY = process.env.LEO_API_KEY || "your_secret_leo_api_key"; // Replace with your actual key or set env var
 
 async function queryLEO(message) {
   const response = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': LEO_API_KEY },
     body: JSON.stringify({
       model: 'gpt-4',
       messages: [{ role: 'user', content: message }]
@@ -463,7 +486,9 @@ async function queryLEO(message) {
 }
 
 async function getAnalytics() {
-  const response = await fetch(`${BASE_URL}/v1/analytics`);
+  const response = await fetch(`${BASE_URL}/v1/analytics`, {
+    headers: { 'X-API-Key': LEO_API_KEY }
+  });
   return await response.json();
 }
 
@@ -481,16 +506,17 @@ console.log(`Cache hit rate: ${(analytics.optimization_metrics.cache_hit_rate * 
 # Query
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "Hello"}]
   }' | jq '.choices[0].message.content'
 
 # Analytics
-curl http://localhost:8000/v1/analytics | jq '.optimization_metrics'
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics | jq '.optimization_metrics'
 
 # Cache stats
-curl http://localhost:8000/v1/optimization/cache/stats | jq '.cache_success_rate'
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/cache/stats | jq '.cache_success_rate'
 ```
 
 ---
@@ -498,6 +524,9 @@ curl http://localhost:8000/v1/optimization/cache/stats | jq '.cache_success_rate
 ## Changelog
 
 ### v2.0 (Current)
+- **Production Readiness**: Implemented Dockerfile and docker-compose.yml for easy deployment.
+- **API Key Authentication**: Added `X-API-Key` header for securing the proxy server.
+- **Production Storage**: Integrated Redis for high-speed caching and SQLite for persistent semantic cache and micro-memory, replacing JSON file storage.
 - ✅ Adaptive Threshold Cache
 - ✅ Query Decomposition
 - ✅ Prompt Optimization

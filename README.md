@@ -1,8 +1,8 @@
-# 🦁 LEO Optima: Intelligent LLM Optimization Layer v1.0
+# 🦁 LEO Optima: Intelligent LLM Optimization Layer v2.0
 
 **LEO Optima** is a high-performance, self-hosted routing and optimization engine designed to reduce LLM API costs by **60-80%** while maintaining response quality through advanced semantic analysis, intelligent caching, and Byzantine consensus verification.
 
-**A robust, cost-efficient, and verifiable LLM orchestration layer.**
+**A robust, cost-efficient, and verifiable LLM orchestration layer, now production-ready with enhanced deployment and security.**
 
 ---
 
@@ -19,6 +19,8 @@
 | **Request Deduplication** | Prevents redundant API calls | ✅ Active |
 | **Dynamic Verification Proofs** | Provides auditable proof of response integrity | ✅ Active |
 | **Detailed Audit Logging** | Offers comprehensive event tracking for compliance | ✅ Active |
+| **Redis Caching** | High-speed exact cache lookups for improved performance | ✅ Active |
+| **SQLite Persistence** | Robust, scalable storage for semantic cache and micro-memory | ✅ Active |
 
 **Combined Savings: 60-80% reduction in API costs**
 
@@ -33,7 +35,7 @@ User Query
     ↓
 [1] Request Deduplication → Batch identical requests
     ↓
-[2] Adaptive Cache → Search with dynamic threshold (FREE!)
+[2] Adaptive Cache (Redis + SQLite) → Search with dynamic threshold (FREE!)
     ↓
 [3] Query Decomposition → Break complex queries into parts
     ↓
@@ -43,7 +45,7 @@ User Query
     ↓
 [6] Confidence Scoring → Retry if confidence < 60%
     ↓
-[7] Cache Storage → Store answer for future use
+[7] Cache Storage (SQLite) → Store answer for future use
     ↓
 Final Response + Metrics
 ```
@@ -53,11 +55,29 @@ Final Response + Metrics
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
-- Python 3.8+
+- Docker and Docker Compose (recommended for production)
+- Python 3.11+ (if running directly)
 - pip or conda
 - OpenAI API key
 
-### Quick Start
+### Quick Start (Recommended: Docker Compose)
+
+```bash
+# Clone repository
+git clone https://github.com/BADJAB22/leo-optima.git
+cd leo-optima
+
+# Configure environment variables (copy .env.example to .env and fill it)
+cp .env.example .env
+# Edit .env to add your OPENAI_API_KEY and LEO_API_KEY
+
+# Build and run with Docker Compose
+docker compose up --build -d
+```
+
+Server will be accessible at `http://localhost:8000`.
+
+### Manual Quick Start (for development/testing)
 
 ```bash
 # Clone and setup
@@ -66,6 +86,10 @@ cd leo-optima
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Set environment variables (e.g., in your shell or a .env file)
+export OPENAI_API_KEY="sk-..."
+export LEO_API_KEY="your_secret_key"
 
 # Start the server
 python proxy_server.py
@@ -79,22 +103,24 @@ Server starts on `http://0.0.0.0:8000`
 
 ### Main Endpoints
 
-| Endpoint | Method | Purpose |
-| :--- | :--- | :--- |
-| `/v1/chat/completions` | POST | Chat completions (OpenAI compatible) |
-| `/v1/analytics` | GET | Comprehensive metrics |
-| `/v1/optimization/status` | GET | Current optimization config |
-| `/v1/optimization/enable` | POST | Enable/disable strategies |
-| `/v1/optimization/cache/feedback` | POST | Provide cache feedback |
-| `/v1/optimization/cache/stats` | GET | Cache statistics |
-| `//health` | GET | Health check |
+| Endpoint | Method | Purpose | Authentication |
+| :--- | :--- | :--- | :--- |
+| `/v1/chat/completions` | POST | Chat completions (OpenAI compatible) | `X-API-Key` Header |
+| `/v1/analytics` | GET | Comprehensive metrics | `X-API-Key` Header |
+| `/v1/optimization/status` | GET | Current optimization config | `X-API-Key` Header |
+| `/v1/optimization/enable` | POST | Enable/disable strategies | `X-API-Key` Header |
+| `/v1/optimization/cache/feedback` | POST | Provide cache feedback | `X-API-Key` Header |
+| `/v1/optimization/cache/stats` | GET | Cache statistics | `X-API-Key` Header |
+| `/health` | GET | Health check | None |
 
-### Example: Chat Completions
+### Example: Authenticated Chat Completions
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{
+  -H "X-API-Key: your_secret_leo_api_key" \
+  -d 
+  '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "What is AI?"}]
   }'
@@ -103,7 +129,8 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ### Example: Get Analytics
 
 ```bash
-curl http://localhost:8000/v1/analytics | jq '.'
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/analytics | jq 
+'.'
 ```
 
 Response includes:
@@ -121,11 +148,15 @@ Response includes:
 
 ```python
 from openai import OpenAI
+import os
 
 # Point to LEO Optima instead of OpenAI
 client = OpenAI(
-    api_key="your-openai-key",
-    base_url="http://localhost:8000/v1"
+    api_key=os.getenv("OPENAI_API_KEY"), # Your OpenAI key
+    base_url="http://localhost:8000/v1",
+    default_headers={
+        "X-API-Key": os.getenv("LEO_API_KEY") # Your LEO Optima API Key
+    }
 )
 
 # Use normally - LEO handles optimization automatically
@@ -141,16 +172,19 @@ print(response.optimization_metrics)  # See optimization details
 ### JavaScript/Node.js
 
 ```javascript
-const OpenAI = require('openai');
+const OpenAI = require("openai");
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  baseURL: 'http://localhost:8000/v1'
+  baseURL: "http://localhost:8000/v1",
+  defaultHeaders: {
+    "X-API-Key": process.env.LEO_API_KEY // Your LEO Optima API Key
+  }
 });
 
 const response = await client.chat.completions.create({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello!' }]
+  model: "gpt-4",
+  messages: [{ role: "user", content: "Hello!" }]
 });
 
 console.log(response.choices[0].message.content);
@@ -164,7 +198,7 @@ console.log(response.choices[0].message.content);
 
 **Problem:** Traditional cache requires exact matches. Many similar questions miss cache.
 
-**Solution:** Learn from feedback and dynamically adjust similarity threshold.
+**Solution:** Learn from feedback and dynamically adjust similarity threshold. Now backed by **Redis** for rapid exact lookups and **SQLite** for persistent semantic storage.
 
 **Result:** 30-40% increase in cache hit rate
 
@@ -228,12 +262,14 @@ Tested with 10,000 requests over 24 hours:
 ### Phase B: Production-Ready Features ✅
 - Asynchronous State Management
 - Streaming Support (SSE)
-- Persistent Vector Storage
+- Persistent Vector Storage (Now using SQLite for Micro-Memory and Semantic Cache)
 - Advanced Trust Evolution
 
 ### Phase C: Security & Scaling ✅
-- Fast O(log N) cache search
+- Fast O(log N) cache search (Enhanced with Redis for exact matches)
 - Cache Poisoning Mitigation
+- **API Key Authentication for Proxy**
+- **Docker & Docker Compose Deployment**
 
 ### Phase D: Single-Model Optimizations ✅
 - Adaptive Threshold Cache
@@ -253,7 +289,7 @@ Tested with 10,000 requests over 24 hours:
 
 ### Real-time Dashboard
 
-Access metrics at `http://localhost:8000/v1/analytics`
+Access metrics at `http://localhost:8000/v1/analytics` (requires `X-API-Key` header)
 
 ```json
 {
@@ -287,27 +323,37 @@ Access metrics at `http://localhost:8000/v1/analytics`
 # Disable query decomposition
 curl -X POST http://localhost:8000/v1/optimization/enable \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your_secret_leo_api_key" \
   -d '{"strategy": "query_decomposition", "enabled": false}'
 
 # Check status
-curl http://localhost:8000/v1/optimization/status
+curl -H "X-API-Key: your_secret_leo_api_key" http://localhost:8000/v1/optimization/status
 ```
 
 ### Environment Variables
 
+Configure these in your `.env` file when using Docker Compose, or set them directly in your environment:
+
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4
+LEO_API_KEY=your_secret_leo_api_key
+REDIS_HOST=redis
+REDIS_PORT=6379
 ```
 
 ---
 
 ## 🔍 Troubleshooting
 
+### Server Won't Start (Docker)
+1.  Ensure Docker and Docker Compose are installed.
+2.  Check your `.env` file for correct `OPENAI_API_KEY` and `LEO_API_KEY`.
+3.  Run `docker compose logs leo-optima` to inspect logs.
+
 ### Low Cache Hit Rate
 
-1. Check cache stats: `GET /v1/optimization/cache/stats`
-2. Provide feedback: `POST /v1/optimization/cache/feedback`
+1. Check cache stats: `GET /v1/optimization/cache/stats` (with `X-API-Key`)
+2. Provide feedback: `POST /v1/optimization/cache/feedback` (with `X-API-Key`)
 3. Verify queries are similar enough
 
 ### High Confidence Retries
@@ -347,10 +393,11 @@ OPENAI_MODEL=gpt-4
 
 ## 🛡️ Security & Privacy
 
-- **No Data Leakage:** Cache stored locally
-- **API Key Protection:** Keys never logged
-- **Encryption Ready:** Can add TLS/SSL
-- **Audit Logs:** All requests logged
+- **API Key Authentication**: Secure your LEO Optima proxy with a configurable API key.
+- **No Data Leakage:** Cache stored locally (SQLite) or in your private Redis instance.
+- **API Key Protection:** Upstream API keys never logged.
+- **Encryption Ready:** Can add TLS/SSL.
+- **Audit Logs:** All requests logged.
 
 ---
 
@@ -379,7 +426,7 @@ We welcome contributions! Areas for improvement:
 
 ---
 
-**Start saving money today with LEO Optima v1.0! 🚀
+**Start saving money today with LEO Optima v2.0! 🚀**
 
 ---
 
