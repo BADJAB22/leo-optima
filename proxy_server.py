@@ -8,30 +8,47 @@ import time
 from datetime import datetime
 from typing import Dict
 from Truth_Optima import TruthOptima
-from leo_optima_single_model import (
-    LEOOptimaSingleModel,
+from api_interfaces import (
+    LLMInterface,
+    LLMSimulator,
     PromptOptimizer,
     ConfidenceScorer,
 )
+from tenant_manager import TenantManager, Tenant
 
-app = FastAPI(title="LEO Optima Universal Proxy v1.0")
+app = FastAPI(title="LEO Optima Universal Proxy v2.0 (Multi-Tenant)")
+
+# Multi-Tenant Identity Manager
+tenant_manager = TenantManager()
+
+async def get_admin_tenant(tenant: Tenant = Depends(get_current_tenant)):
+    if tenant.tier != 'enterprise':
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return tenant
 
 # API Key Security
 API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
-async def get_api_key(
-    api_key_header: str = Security(api_key_header),
-):
-    expected_api_key = os.getenv("LEO_API_KEY")
-    # If no key is set in environment, we allow access (default behavior for local dev)
-    # But if it is set, we enforce it.
-    if expected_api_key and api_key_header != expected_api_key:
-        raise HTTPException(
-            status_code=403,
-            detail="Could not validate credentials",
-        )
-    return api_key_header
+async def get_current_tenant(
+    api_key: str = Security(api_key_header),
+) -> Tenant:
+    if not api_key:
+        # Fallback for local development if no LEO_API_KEY is set in environment
+        # But we still try to find the default admin tenant
+        default_key = os.getenv("LEO_API_KEY", "leo_admin_secret_key")
+        tenant = tenant_manager.get_tenant_by_key(default_key)
+        if tenant: return tenant
+        raise HTTPException(status_code=403, detail="API Key required")
+
+    tenant = tenant_manager.get_tenant_by_key(api_key)
+    if not tenant:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    
+    if not tenant_manager.check_quota(tenant):
+        raise HTTPException(status_code=429, detail="Quota exceeded for this tenant")
+        
+    return tenant
 
 # Initialize TruthOptima for advanced routing
 truth_system = TruthOptima()
@@ -106,17 +123,27 @@ metrics = OptimizationMetrics()
 # ============================================================
 
 @app.get("/v1/analytics")
-async def get_analytics(api_key: APIKey = Depends(get_api_key)):
-    """Return comprehensive analytics including optimization metrics"""
+async def get_analytics(tenant: Tenant = Depends(get_current_tenant)):
+    """Return comprehensive analytics for the current tenant"""
     return {
-        'leo_optima_stats': truth_system.stats,
+        'tenant': {
+            'id': tenant.id,
+            'name': tenant.name,
+            'tier': tenant.tier,
+            'usage': {
+                'tokens_used': tenant.tokens_used,
+                'token_quota': tenant.token_quota,
+                'cost_used': tenant.cost_used,
+                'cost_limit': tenant.cost_limit
+            }
+        },
+        'leo_optima_stats': truth_system.get_tenant_stats(tenant.id),
         'optimization_metrics': metrics.get_summary(),
-        'single_model_stats': single_model_optimizer.get_stats(),
         'timestamp': datetime.now().isoformat()
     }
 
 @app.post("/v1/chat/completions")
-async def proxy_chat_completions(request: Request, api_key: APIKey = Depends(get_api_key)):
+async def proxy_chat_completions(request: Request, tenant: Tenant = Depends(get_current_tenant)):
     try:
         body = await request.json()
     except Exception:
@@ -152,7 +179,11 @@ async def proxy_chat_completions(request: Request, api_key: APIKey = Depends(get
         optimized_query = single_model_optimizer.prompt_optimizer.optimize_prompt(last_user_message)
     
     # 3. Use main system for response
-    response_obj = await truth_system.ask(optimized_query)
+    response_obj = await truth_system.ask(optimized_query, tenant_id=tenant.id)
+    
+    # Update Tenant Usage
+    tokens_estimated = len(response_obj.answer.split()) * 1.5 # Rough estimate
+    tenant_manager.update_usage(tenant.id, tokens=int(tokens_estimated), cost=response_obj.cost_estimate)
     
     # 4. Score confidence
     confidence = 1.0
@@ -284,7 +315,7 @@ async def stream_generator(question: str, model: str):
 # ============================================================
 
 @app.get("/v1/optimization/status")
-async def get_optimization_status(api_key: APIKey = Depends(get_api_key)):
+async def get_optimization_status(tenant: Tenant = Depends(get_current_tenant)):
     """Get current optimization configuration and status"""
     return {
         'config': OPTIMIZATION_CONFIG,
@@ -294,17 +325,20 @@ async def get_optimization_status(api_key: APIKey = Depends(get_api_key)):
     }
 
 @app.post("/v1/optimization/enable")
-async def enable_optimization(request: Request, api_key: APIKey = Depends(get_api_key)):
+async def enable_optimization(request: Request, tenant: Tenant = Depends(get_current_tenant)):
     """Enable specific optimization strategy"""
+    if tenant.tier != 'enterprise':
+        raise HTTPException(status_code=403, detail="Only enterprise tenants can modify global strategies")
+    
     body = await request.json()
     strategy = body.get('strategy')
     enabled = body.get('enabled', True)
-    
-    if strategy not in OPTIMIZATION_CONFIG:
+
+    if strategy in OPTIMIZATION_CONFIG:
+        OPTIMIZATION_CONFIG[strategy] = enabled
+    else:
         raise HTTPException(status_code=400, detail=f"Unknown strategy: {strategy}")
-    
-    OPTIMIZATION_CONFIG[strategy] = enabled
-    
+
     return {
         'strategy': strategy,
         'enabled': enabled,
@@ -312,14 +346,14 @@ async def enable_optimization(request: Request, api_key: APIKey = Depends(get_ap
     }
 
 @app.post("/v1/optimization/cache/feedback")
-async def provide_cache_feedback(request: Request, api_key: APIKey = Depends(get_api_key)):
+async def provide_cache_feedback(request: Request, tenant: Tenant = Depends(get_current_tenant)):
     """Provide feedback on cache hit quality"""
     body = await request.json()
     cached_answer = body.get('cached_answer')
     is_correct = body.get('is_correct', True)
-    
-    single_model_optimizer.adaptive_cache.add_feedback(cached_answer, is_correct)
-    
+
+    result = single_model_optimizer.adaptive_cache.provide_feedback(cached_answer, is_correct)
+
     return {
         'status': 'feedback_recorded',
         'cache_success_rate': single_model_optimizer.adaptive_cache.success_rate,
@@ -327,7 +361,7 @@ async def provide_cache_feedback(request: Request, api_key: APIKey = Depends(get
     }
 
 @app.get("/v1/optimization/cache/stats")
-async def get_cache_stats(api_key: APIKey = Depends(get_api_key)):
+async def get_cache_stats(tenant: Tenant = Depends(get_current_tenant)):
     """Get detailed cache statistics"""
     cache = single_model_optimizer.adaptive_cache
     return {
@@ -335,16 +369,33 @@ async def get_cache_stats(api_key: APIKey = Depends(get_api_key)):
         'base_threshold': cache.base_threshold,
         'dynamic_threshold': cache.dynamic_threshold,
         'success_rate': cache.success_rate,
-        'feedback_count': len(cache.feedback_history),
-        'entries': [
-            {
-                'answer_preview': entry['answer'][:100],
-                'confidence': entry['confidence'],
-                'timestamp': entry['timestamp'].isoformat()
-            }
-            for entry in cache.cache_entries[-10:]
-        ]
+        'feedback_count': len(cache.feedback_data)
     }
+
+# ============================================================
+# TENANT MANAGEMENT ENDPOINTS (Admin Only)
+# ============================================================
+
+@app.post("/v1/admin/tenants")
+async def create_tenant(request: Request, admin: Tenant = Depends(get_admin_tenant)):
+    """Create a new tenant (Admin only)"""
+    body = await request.json()
+    name = body.get('name')
+    if not name:
+        raise HTTPException(status_code=400, detail="Tenant name required")
+    
+    result = tenant_manager.create_tenant(
+        name=name,
+        tier=body.get('tier', 'free'),
+        token_quota=body.get('token_quota', 100000),
+        cost_limit=body.get('cost_limit', 10.0)
+    )
+    return result
+
+@app.get("/v1/admin/tenants")
+async def list_tenants(admin: Tenant = Depends(get_admin_tenant)):
+    """List all tenants (Admin only)"""
+    return {"tenants": tenant_manager.list_tenants()}
 
 @app.get("/health")
 async def health_check():
