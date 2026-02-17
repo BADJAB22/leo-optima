@@ -23,6 +23,16 @@ Built by **[Bader Jamal](https://github.com/BADJAB22)** at **[Kadropic Labs](htt
 
 In the current AI landscape, tokens are the new gold. Most applications bleed money through redundant queries, bloated prompts, and over-provisioned models. LEO Optima acts as a **Smart Financial Layer** for your AI stack.
 
+### 🦞 The OpenClaw Solution
+Are you running **OpenClaw** (formerly Moltbot)? Autonomous agents like OpenClaw are incredible but notorious for "burning" tokens through recursive loops and repetitive state-checks. 
+
+**LEO Optima is the perfect companion for your OpenClaw installation.**
+- **Loop Deduplication**: Prevents paying for the same state-check queries during agent loops.
+- **Context Slimming**: Slashes the cost of long-running agent conversations by stripping redundant system prompts.
+- **Cost Guardrails**: Monitor exactly how much your OpenClaw agent is spending in real-time.
+
+> **Note**: For the ultimate autonomous experience, **Install LEO Optima alongside your OpenClaw setup** and point your OpenClaw `OPENAI_BASE_URL` to LEO.
+
 ### 💰 The Value Proposition
 - **Drastic Cost Reduction**: Automatically saves up to 80% on OpenAI, Anthropic, and Gemini bills.
 - **Sub-Millisecond Speed**: Serve repeated or semantically similar queries instantly from your local cache.
@@ -70,6 +80,13 @@ docker compose up --build -d
 
 - **Dashboard**: `http://localhost:3000`
 - **API Proxy**: `http://localhost:8000`
+
+### 🔌 Using with OpenClaw
+Simply update your OpenClaw `.env` or environment variables:
+```bash
+OPENAI_BASE_URL=http://localhost:8000/v1
+# Ensure your LEO_API_KEY is passed in headers if required by your setup
+```
 
 ---
 
