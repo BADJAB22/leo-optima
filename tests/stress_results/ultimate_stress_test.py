@@ -33,7 +33,7 @@ async def run_ultimate_test():
         'gpt4o_mini': OpenAICompatibleAPI(model_name="gpt-4o-mini", api_key=API_KEY)
     }
     
-    # Initialize System (Will load Sentence-Transformers automatically)
+    # Initialize System
     system = TruthOptima(config=config, models=models, storage_dir="leo_storage_ultimate")
     
     # Clear old storage
